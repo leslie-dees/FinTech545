@@ -1,5 +1,8 @@
 from scipy.stats import moment, skew, kurtosis
 import numpy as np
+import statsmodels.api as sm
+import matplotlib.pyplot as plt
+import seaborn as sns
 
 def first4Moments(sample, excess_kurtosis=True):
     # Calculate the raw moments
@@ -16,3 +19,26 @@ def first4Moments(sample, excess_kurtosis=True):
         return mean_hat, var_hat, skew_hat, excessKurt_hat
     else:
         return mean_hat, var_hat, skew_hat, kurt_hat  # Regular kurtosis
+    
+
+
+def perform_ols(X, y, visualize_error=False):
+    # Add a constant term to X matrix for the intercept
+    X = sm.add_constant(X)
+    
+    # Fit OLS model
+    model = sm.OLS(y, X).fit()
+    # Calculate error vector
+    error_vector = model.resid
+    
+    # visualize error if desired
+    if visualize_error:
+        # Visualize the error distribution
+        plt.figure(figsize=(8, 6))
+        sns.histplot(error_vector, kde=True, color='blue', bins=30)
+        plt.title("Error Distribution")
+        plt.xlabel("Residuals")
+        plt.ylabel("Frequency")
+        plt.show()
+    
+    return error_vector
