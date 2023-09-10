@@ -38,7 +38,7 @@ def perform_ols(X, y, visualize_error=False):
     if visualize_error:
         # Visualize the error distribution
         plt.figure(figsize=(8, 6))
-        sns.histplot(error_vector, kde=True, color='blue', bins=30)
+        sns.histplot(error_vector, kde=True, color='blue', bins=100)
         plt.title("Error Distribution")
         plt.xlabel("Residuals")
         plt.ylabel("Frequency")
@@ -47,9 +47,11 @@ def perform_ols(X, y, visualize_error=False):
     print("Error Vector: ", error_vector)
     averaged_error_vector = np.mean(error_vector)
     print("Averaged Error Vector: ", averaged_error_vector)
+    variance_error_vector = np.var(error_vector)
+    print("Variance Error Vector: ", variance_error_vector)
     return error_vector
 
-def optimize_normal_distribution(X, y, perform_hypothesis_test = False):
+def mle_normal_distribution(X, y, perform_hypothesis_test = False):
     # Define the likelihood function for the normal distribution
     def log_likelihood(mean, var, X):
         # Number of values in X
@@ -98,7 +100,7 @@ def optimize_normal_distribution(X, y, perform_hypothesis_test = False):
 
     return optimized_mean, optimized_std_dev
 
-def optimize_t_distribution(X, y, perform_hypothesis_test=False):
+def mle_t_distribution(X, y, perform_hypothesis_test=False):
     # Define the likelihood function for the t-distribution
     def log_likelihood(mean, var, df, X):
         adjusted_X = X - mean
@@ -109,7 +111,7 @@ def optimize_t_distribution(X, y, perform_hypothesis_test=False):
     # Calculate initial guess for mean, standard deviation, and degrees of freedom
     mean_guess = np.mean(y)
     std_dev_guess = np.std(y)
-    df_guess = 3.0  # You can adjust the initial guess for degrees of freedom
+    df_guess = len(X)-1  # You can adjust the initial guess for degrees of freedom
 
     # Initial guess for optimization
     initial_params = [mean_guess, std_dev_guess, df_guess]
@@ -140,7 +142,7 @@ def optimize_t_distribution(X, y, perform_hypothesis_test=False):
         print("Reject Null Hypothesis:", reject_null)
 
 
-def simulate_MA(N, num_steps, e, burn_in, mean, plot_y = False, max_threshold = 1e6):
+def simulate_MA(N, num_steps, e, burn_in, mean, plot_y = False, max_threshold = 1e4):
 
     # Initialize y MA preds
     y = np.empty(num_steps)
@@ -155,8 +157,8 @@ def simulate_MA(N, num_steps, e, burn_in, mean, plot_y = False, max_threshold = 
             y[i - burn_in - 1] = y_t
 
     # Calculate the mean and variance only for the non-burn-in period
-    mean_y = np.mean(y[burn_in:])
-    var_y = np.var(y[burn_in:])
+    mean_y = np.mean(y)
+    var_y = np.var(y)
     print(f"Mean of Y: {mean_y:.4f}")
     print(f"Var of Y: {var_y:.4f}")
 
@@ -167,44 +169,10 @@ def simulate_MA(N, num_steps, e, burn_in, mean, plot_y = False, max_threshold = 
         plt.title(f"MA({N}) Time Series")
         plt.xlabel("Timestep")
         plt.ylabel("Y")
+        plt.savefig(f'plots/MA_{N}_Steps.png')
         plt.show()
 
-    return y, mean_y, var_y
 
-def simulate_AR(N, num_steps, e, burn_in, mean, plot_y = False):
-    
-    # Initialize y MA preds and AR coefficients
-    y = np.empty(num_steps)
-    phi = np.random.uniform(-1, 1, size=N)
-
-    # Loop through time steps
-    for i in range(num_steps + burn_in):
-        # If we have enough data for AR(N) process
-        if i >= N:
-            y_t = mean + np.sum(phi * y[i - N:i]) + e[i]
-        else:
-            # Use white noise if not enough lagged values    
-            y_t = mean + e[i]
-
-        if i >= burn_in:
-            y[i - burn_in] = y_t
-
-    # Calculate the mean and variance only for the non-burn-in period
-    mean_y = np.mean(y[burn_in:])
-    var_y = np.var(y[burn_in:])
-    print(f"Mean of Y: {mean_y:.4f}")
-    print(f"Var of Y: {var_y:.4f}")
-
-    # Optionally plot the time series if plot_y is True
-    if plot_y:
-        plt.figure(figsize=(10, 4))
-        plt.plot(y)
-        plt.title(f"AR({N}) Time Series")
-        plt.xlabel("Timestep")
-        plt.ylabel("Y")
-        plt.show()
-
-    # Return the simulated time series, mean, and variance
     return y, mean_y, var_y
 
 def simulate_AR(N, num_steps, e, burn_in, mean, plot_y=True):
@@ -214,7 +182,7 @@ def simulate_AR(N, num_steps, e, burn_in, mean, plot_y=True):
 
     # Simulate the AR(N) process
     for i in range(n + burn_in):
-        y_t = mean  # Initialize y_t to zero
+        y_t = mean  # Initialize y_t to the mean
 
         # Compute the AR(N) value for y_t
         for j in range(1, N + 1):
@@ -235,7 +203,9 @@ def simulate_AR(N, num_steps, e, burn_in, mean, plot_y=True):
         plt.title(f"AR({N}) Time Series")
         plt.xlabel("Timestep")
         plt.ylabel("Y")
+        plt.savefig(f'plots/AR_{N}_Steps.png')
         plt.show()
+
 
     # Calculate the mean and variance only for the non-burn-in period
     mean_y = np.mean(y[burn_in:])
@@ -245,7 +215,7 @@ def simulate_AR(N, num_steps, e, burn_in, mean, plot_y=True):
 
     return y, mean_y, var_y
 
-def plot_acf_pacf(y, plot_type='AR'):
+def plot_acf_pacf(y, N, plot_type='AR', save_plots=False):
     # Set custom styling for the plots
     plt.style.use('dark_background')
     plt.rcParams['axes.facecolor'] = 'black'
@@ -253,6 +223,12 @@ def plot_acf_pacf(y, plot_type='AR'):
     plt.rcParams['xtick.color'] = 'red'
     plt.rcParams['ytick.color'] = 'red'
     plt.rcParams['text.color'] = 'white'
+
+    # Create a directory to save plots if it doesn't exist
+    if save_plots:
+        import os
+        if not os.path.exists('plots'):
+            os.makedirs('plots')
 
     # Plot the ACF and PACF with red lines
     plt.figure(figsize=(12, 6))
@@ -268,7 +244,11 @@ def plot_acf_pacf(y, plot_type='AR'):
     ax2.set_title("Partial Autocorrelation Function (PACF)")
 
     # Add an overall title including the plot_type
-    plt.suptitle(f"{plot_type} - ACF and PACF Plots", color='white', fontsize=16)
+    plt.suptitle(f"{plot_type}({N}) - ACF and PACF Plots", color='white', fontsize=16)
+
+    plt.savefig(f'plots/{plot_type}_{N}_ACF_PACF.png')
 
     plt.tight_layout()
+
+    # Display the plots
     plt.show()
