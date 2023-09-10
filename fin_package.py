@@ -1,6 +1,7 @@
 from scipy.stats import moment
 import numpy as np
 import statsmodels.api as sm
+from statsmodels.graphics.tsaplots import plot_acf, plot_pacf
 import matplotlib.pyplot as plt
 import seaborn as sns
 from scipy.stats import norm, t
@@ -243,3 +244,31 @@ def simulate_AR(N, num_steps, e, burn_in, mean, plot_y=True):
     print(f"Var of Y: {var_y:.4f}")
 
     return y, mean_y, var_y
+
+def plot_acf_pacf(y, plot_type='AR'):
+    # Set custom styling for the plots
+    plt.style.use('dark_background')
+    plt.rcParams['axes.facecolor'] = 'black'
+    plt.rcParams['axes.edgecolor'] = 'white'
+    plt.rcParams['xtick.color'] = 'red'
+    plt.rcParams['ytick.color'] = 'red'
+    plt.rcParams['text.color'] = 'white'
+
+    # Plot the ACF and PACF with red lines
+    plt.figure(figsize=(12, 6))
+
+    # ACF plot
+    ax1 = plt.subplot(121)
+    plot_acf(y, lags=40, ax=ax1, color='red')
+    ax1.set_title("Autocorrelation Function (ACF)")
+
+    # PACF plot
+    ax2 = plt.subplot(122)
+    plot_pacf(y, lags=40, ax=ax2, color='red')
+    ax2.set_title("Partial Autocorrelation Function (PACF)")
+
+    # Add an overall title including the plot_type
+    plt.suptitle(f"{plot_type} - ACF and PACF Plots", color='white', fontsize=16)
+
+    plt.tight_layout()
+    plt.show()
