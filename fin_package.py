@@ -3,7 +3,7 @@ import numpy as np
 import statsmodels.api as sm
 import matplotlib.pyplot as plt
 import seaborn as sns
-from scipy.stats import norm, gamma
+from scipy.stats import norm, t
 from scipy.optimize import minimize
 
 def first4Moments(sample, excess_kurtosis=True):
@@ -96,3 +96,44 @@ def optimize_normal_distribution(X, y, perform_hypothesis_test = False):
     
 
     return optimized_mean, optimized_std_dev
+
+def optimize_t_distribution(X, y, perform_hypothesis_test=False):
+    # Define the likelihood function for the t-distribution
+    def log_likelihood(mean, var, df, X):
+        adjusted_X = X - mean
+        var2 = var**2
+        log_likeli = np.sum(t.logpdf(adjusted_X / np.sqrt(var2), df))
+        return -log_likeli
+
+    # Calculate initial guess for mean, standard deviation, and degrees of freedom
+    mean_guess = np.mean(y)
+    std_dev_guess = np.std(y)
+    df_guess = 3.0  # You can adjust the initial guess for degrees of freedom
+
+    # Initial guess for optimization
+    initial_params = [mean_guess, std_dev_guess, df_guess]
+
+    # Perform optimization through minimization of log likelihood
+    result = minimize(lambda params: log_likelihood(params[0], params[1], params[2], X), initial_params)
+
+    # Extract optimized parameters
+    optimized_mean, optimized_std_dev, optimized_df = result.x
+
+    # Print optimized parameters
+    print("Optimized Mean:", optimized_mean)
+    print("Optimized Standard Deviation:", optimized_std_dev)
+    print("Optimized Degrees of Freedom:", optimized_df)
+
+    # Perform hypothesis test if specified
+    if perform_hypothesis_test:
+        # Calculate test statistic and p-value against standard t-distribution (0, 1, df)
+        test_statistic = (optimized_mean - 0) / (optimized_std_dev / np.sqrt(optimized_df))
+        p_value = 2 * (1 - t.cdf(abs(test_statistic), df=optimized_df))  # Two-tailed test
+
+        # Determine if the null hypothesis (X is from a standard t-distribution) is rejected
+        reject_null = p_value < 0.05  # Using a significance level of 0.05
+
+        # Print hypothesis test results
+        print("Test Statistic:", test_statistic)
+        print("P-Value:", p_value)
+        print("Reject Null Hypothesis:", reject_null)
