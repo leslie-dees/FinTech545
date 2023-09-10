@@ -137,3 +137,109 @@ def optimize_t_distribution(X, y, perform_hypothesis_test=False):
         print("Test Statistic:", test_statistic)
         print("P-Value:", p_value)
         print("Reject Null Hypothesis:", reject_null)
+
+
+def simulate_MA(N, num_steps, e, burn_in, mean, plot_y = False, max_threshold = 1e6):
+
+    # Initialize y MA preds
+    y = np.empty(num_steps)
+
+    # Simulate the MA(N) process
+    for i in range(1, num_steps + burn_in):
+        y_t = mean + np.sum([0.05 * e[i - j] for j in range(1, N + 1)]) + e[i]
+        if i > burn_in:
+            # Check if y_t is beyond a certain threshold
+            if abs(y_t) > max_threshold:
+                y_t = np.sign(y_t) * mean
+            y[i - burn_in - 1] = y_t
+
+    # Calculate the mean and variance only for the non-burn-in period
+    mean_y = np.mean(y[burn_in:])
+    var_y = np.var(y[burn_in:])
+    print(f"Mean of Y: {mean_y:.4f}")
+    print(f"Var of Y: {var_y:.4f}")
+
+    if plot_y == True:
+        # Plot the time series
+        plt.figure(figsize=(10, 4))
+        plt.plot(y)
+        plt.title(f"MA({N}) Time Series")
+        plt.xlabel("Timestep")
+        plt.ylabel("Y")
+        plt.show()
+
+    return y, mean_y, var_y
+
+def simulate_AR(N, num_steps, e, burn_in, mean, plot_y = False):
+    
+    # Initialize y MA preds and AR coefficients
+    y = np.empty(num_steps)
+    phi = np.random.uniform(-1, 1, size=N)
+
+    # Loop through time steps
+    for i in range(num_steps + burn_in):
+        # If we have enough data for AR(N) process
+        if i >= N:
+            y_t = mean + np.sum(phi * y[i - N:i]) + e[i]
+        else:
+            # Use white noise if not enough lagged values    
+            y_t = mean + e[i]
+
+        if i >= burn_in:
+            y[i - burn_in] = y_t
+
+    # Calculate the mean and variance only for the non-burn-in period
+    mean_y = np.mean(y[burn_in:])
+    var_y = np.var(y[burn_in:])
+    print(f"Mean of Y: {mean_y:.4f}")
+    print(f"Var of Y: {var_y:.4f}")
+
+    # Optionally plot the time series if plot_y is True
+    if plot_y:
+        plt.figure(figsize=(10, 4))
+        plt.plot(y)
+        plt.title(f"AR({N}) Time Series")
+        plt.xlabel("Timestep")
+        plt.ylabel("Y")
+        plt.show()
+
+    # Return the simulated time series, mean, and variance
+    return y, mean_y, var_y
+
+def simulate_AR(N, num_steps, e, burn_in, mean, plot_y=True):
+    # Initialize variables
+    n = num_steps
+    y = np.empty(n)
+
+    # Simulate the AR(N) process
+    for i in range(n + burn_in):
+        y_t = mean  # Initialize y_t to zero
+
+        # Compute the AR(N) value for y_t
+        for j in range(1, N + 1):
+            if i - j >= 0:
+                y_t += 0.5 ** j * y[i - j - burn_in]
+
+        # Add the white noise
+        y_t += e[i]
+
+        # Store the value in the y array if not in the burn-in period
+        if i >= burn_in:
+            y[i - burn_in] = y_t
+
+    # Optionally plot the time series
+    if plot_y:
+        plt.figure(figsize=(10, 4))
+        plt.plot(y)
+        plt.title(f"AR({N}) Time Series")
+        plt.xlabel("Timestep")
+        plt.ylabel("Y")
+        plt.show()
+
+    # Calculate the mean and variance only for the non-burn-in period
+    mean_y = np.mean(y[burn_in:])
+    var_y = np.var(y[burn_in:])
+    print(f"Mean of Y: {mean_y:.4f}")
+    print(f"Var of Y: {var_y:.4f}")
+
+    return y, mean_y, var_y
