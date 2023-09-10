@@ -10,7 +10,7 @@ from scipy.stats import ttest_1samp
 mean = 0
 std_dev = 1
 known_kurtosis = 3
-num_samples = 1000
+num_samples = 5000
 sample_size = 5000
 
 def calc_estimated_kurtosis(sample_size=sample_size):
