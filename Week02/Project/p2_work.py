@@ -14,8 +14,8 @@ fin_package.perform_ols(X, y, True)
 
 print("Performing MLE for Normal Distribution")
 print("------------------------------------------------------------")
-fin_package.mle_normal_distribution(X, y, True)
+#fin_package.mle_normal_distribution(X, y, True)
 
 print("Performing MLE for t Distribution")
 print("------------------------------------------------------------")
-fin_package.mle_t_distribution(X, y, True)
+#fin_package.mle_t_distribution(X, y, True)

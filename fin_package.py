@@ -187,7 +187,7 @@ def simulate_AR(N, num_steps, e, burn_in, mean, plot_y=True):
         # Compute the AR(N) value for y_t
         for j in range(1, N + 1):
             if i - j >= 0:
-                y_t += 0.5 ** j * y[i - j - burn_in]
+                y_t += 0.5 ** j * y[i - j - burn_in] # take a look at removing the burn in
 
         # Add the white noise
         y_t += e[i]
