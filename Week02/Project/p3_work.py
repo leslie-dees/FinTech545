@@ -19,9 +19,9 @@ np.random.seed(42)
 e = np.random.randn(num_steps+burn_in)
 
 # Simulate the MA(N) process
-#y, mean_y, var_y = fin_package.simulate_MA(N, num_steps, e, burn_in, mean, plot_y=True)
-#fin_package.plot_acf_pacf(y, N, plot_type = "MA")
+y, mean_y, var_y = fin_package.simulate_MA(N, num_steps, e, burn_in, mean, plot_y=True)
+fin_package.plot_acf_pacf(y, N, plot_type = "MA")
 
 # Simulate the AR(N) process
-y, mean_y, var_y = fin_package.simulate_AR(N, num_steps, e, burn_in, mean, plot_y=True)
-fin_package.plot_acf_pacf(y, N, plot_type = "AR")
+#y, mean_y, var_y = fin_package.simulate_AR(N, num_steps, e, burn_in, mean, plot_y=True)
+#fin_package.plot_acf_pacf(y, N, plot_type = "AR")
