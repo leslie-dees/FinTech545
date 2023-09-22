@@ -271,6 +271,16 @@ near_pairwise = near_psd(pairwise)
 chol_psd!(root,near_pairwise)
 
 #PCA
+vals, vecs = eigen(near_pairwise)
+
+#Keep values 2:5
+vals = vals[2:5]
+vecs = vecs[:,2:5]
+B = vecs * diagm(sqrt.(vals))
+r = (B * randn(4,100_000_000))'
+cov(r)
+
+
 function simulate_pca(a, nsim; nval=nothing)
     #Eigenvalue decomposition
     vals, vecs = eigen(a)
