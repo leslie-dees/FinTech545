@@ -13,7 +13,9 @@ def calculate_ewma_covariance_matrix(df, lambd):
     # Calculate the weights and normalized weights for each time step
     # w_{t_i} = (1-lambda)*lambda^{i-1}
     weights = [(1 - lambd) * lambd**(i) for i in range(n)]  
-    
+    weights = weights[::-1]
+    #### Flip the weights
+
     # Calculate the sum of weights to normalize them
     total_weight = sum(weights)  # sum w_{t-j}
     
@@ -30,6 +32,7 @@ def calculate_ewma_covariance_matrix(df, lambd):
         deviation = df.iloc[t, :] - means  
         
         # weighted deviation from means for x and y
+        ### NEED TO PERFORM ELEMENT WISE OPERATION, FIX THIS
         ewma_cov_matrix += normalized_weights[t] * deviation.values.reshape(-1, 1) @ deviation.values.reshape(1, -1)
     ewma_cov_matrix = pd.DataFrame(ewma_cov_matrix)
     return ewma_cov_matrix
@@ -144,6 +147,7 @@ def higham_near_psd(a, epsilon = 0.0, max_iterations=100):
         np.fill_diagonal(Y, 1)  # Y_k = P_U(X_k)
         
         # Compute norms for convergence checking
+        ### change Y to Covar matrix
         diffY = norm(Y - Yold, 'fro') / norm(Y, 'fro') #lambda calc
 
     return X

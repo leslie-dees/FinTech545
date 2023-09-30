@@ -50,6 +50,7 @@ for n in (50, 100, 200, 500, 750, 1000):
     print(f"Execution time for 'near_psd' function: {near_psd_time} seconds")
     f3.is_psd(v)
 
+    print(f"Frobenius Norm for near_psd is: {np.linalg.norm(v-sigma)}")
     # Measure execution time for 'higham_near_psd' function
     start_time = time.time()
     b = f3.higham_near_psd(sigma)
@@ -59,4 +60,4 @@ for n in (50, 100, 200, 500, 750, 1000):
     print(f"Execution time for 'higham_near_psd' function: {higham_near_psd_time} seconds")
     f3.is_psd(b)
 
-    print(f"Frobenius Norm is: {np.linalg.norm(v-b)}")
+    print(f"Frobenius Norm for Higham is: {np.linalg.norm(b-sigma)}")
