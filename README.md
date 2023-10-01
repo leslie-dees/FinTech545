@@ -15,3 +15,9 @@ In order to recreate code, all you need to do is follow the comments for the que
 ### Problem 1: Week03/Project/p1_work.py
 ### Problem 2: Week03/Project/p2_work.py
 ### Problem 3: Week03/Project/p3_work.py
+
+## Project 4
+#### Methods contained inside each respective work python file
+### Problem 1: Week04/Project/p1_work.py
+### Problem 2: Week04/Project/p2_work.py
+### Problem 3: Week04/Project/p3_work.py
