@@ -4,6 +4,7 @@ import time
 sys.path.append('C:/Users/lesli/Documents/Duke/Masters/FinTech545')
 
 import fin_package_3 as f3
+import fin_package as fin
 
 n = 500
 sigma = 0.9 * np.ones((n, n), dtype=np.float64)
@@ -26,7 +27,7 @@ print("Since the Cholesky PDf function runs using the near_psd function, the mat
 # Initialize the root matrix
 root = np.zeros((n, n), dtype=np.float64)
 
-b = f3.higham_near_psd(sigma)
+b = fin.higham_near_psd(sigma)
 f3.is_psd(b)
 
 f3.chol_psd(root = root, a = b)

@@ -209,7 +209,7 @@ def mle_t_distribution_one_input(y):
     # Calculate initial guess for mean, standard deviation, and degrees of freedom
     mean_guess = np.mean(y)
     std_dev_guess = np.std(y)
-    df_guess = len(y)
+    _, _, df_guess = t.fit(y)
 
     # Initial guess for optimization
     initial_params = [mean_guess, std_dev_guess, df_guess]
@@ -516,7 +516,7 @@ def higham_near_psd(a, epsilon = 0.0, max_iterations=100):
         
         # Compute norms for convergence checking
         ### change Y to Covar matrix
-        diffY = norm(Y - Yold, 'fro') / norm(Y, 'fro') #lambda calc
+        diffY = np.linalg.norm(Y - Yold, 'fro') / np.linalg.norm(Y, 'fro') #lambda calc
 
     return X
 
@@ -676,3 +676,32 @@ def portfolio_es(portfolio, stock_dict, dist = "T"):
             stock_es *= portfolio.loc[portfolio['Stock'] == stock, 'Holding']
             portfolio_es_individual.append(stock_es)
         return np.mean(portfolio_es_individual)
+
+def calculate_prices(returns, initial_price, method="classical_brownian", print_calc = True):
+    #initial price
+    prices = [initial_price]
+
+    for i in range(len(returns)):
+        r_t = returns.iloc[i]
+
+        if method == "classical_brownian":
+            # Classical Brownian Motion: P_t = P_{t-1} + r_t
+            p_t = prices[i] + r_t
+        elif method == "arithmetic_return":
+            # Arithmetic Return System: P_t = P_{t-1}(r_t + 1)
+            p_t = prices[i] * (1 + r_t)
+        elif method == "geometric_brownian":
+            # Log Return or Geometric Brownian Motion: P_t = P_{t-1}*e^{r_t}
+            p_t = prices[i] * np.exp(r_t)
+        else:
+            raise ValueError("Invalid method. Supported methods are 'classical_brownian', 'arithmetic_return', and 'geometric_brownian'.")
+
+        prices.append(p_t)
+
+    expected_value = np.mean(prices)
+    std_deviation = np.std(prices)
+    if print_calc == True:
+        print(f"Expected value of {method}: {expected_value}")
+        print(f"Standard Deviation of {method}: {std_deviation}\n")
+
+    return prices, expected_value, std_deviation

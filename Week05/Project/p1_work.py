@@ -17,27 +17,28 @@ print(f"Normal Optimized Mean: {norm_mean}")
 print(f"Normal Optimized Std: {norm_std}")
 # Fit Generalized T Distribution to this data
 t_mean, t_std, t_df = fin.mle_t_distribution_one_input(data.values)
+#t_mean, t_std, t_df = t.fit(data.values)
 
 print(f"T Optimized Mean: {t_mean}")
 print(f"T Optimized Std: {t_std}")
 print(f"T Optimized DF: {t_df}")
 
 # Calculate VaR for Normal
-var_normal = fin.calc_var_normal(norm_mean, norm_std)
+var_normal = -1*fin.calc_var_normal(norm_mean, norm_std)
 print(f"VaR Normal Dist: {var_normal}")
 
 # Calculate VaR for Generalized T
-var_t = fin.calc_var_t_dist(t_mean, t_std, t_df)
+var_t = -1*fin.calc_var_t_dist(t_mean, t_std, t_df)
 print(f"VaR T Dist: {var_t}")
 
 # Calculate ES for Normal
 
-es_norm = fin.calc_expected_shortfall_normal(norm_mean, norm_std, alpha=0.05)
+es_norm = -1*fin.calc_expected_shortfall_normal(norm_mean, norm_std, alpha=0.05)
 print(f"Expected Shortfall for Norm Dist: {es_norm}")
 
 # Calculate ES for Generalized T
 
-es_t = fin.calc_expected_shortfall_normal(t_mean, t_std, t_df)
+es_t = fin.calc_expected_shortfall_t(t_mean, t_std, t_df)
 print(f"Expected Shortfall for T Dist: {es_t}")
 # Overlay graphs of PDFs, VaR, ES
 
