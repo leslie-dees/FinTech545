@@ -19,7 +19,7 @@ def calculate_portfolio_var(portfolio, price_df, returns_df, lambd, alpha = 0.05
     delta = np.array(delta)
     normalized_delta = delta / portfolio_value
     
-    exp_weighted_cov = f3.calculate_ewma_covariance_matrix(returns, lambd)
+    exp_weighted_cov = f3.calculate_ewma_covariance_matrix(returns_df, lambd)
     exp_weighted_std = np.sqrt(np.diagonal(exp_weighted_cov))
     
     # Create a dictionary to store column titles and corresponding exp_weighted_std values
@@ -44,6 +44,7 @@ port_c = portfolio[portfolio['Portfolio'] == "C"]
 # Load in Prices and Returns
 prices = pd.read_csv("Week04/DailyPrices.csv")
 returns = pd.read_csv("Week04/DailyReturn.csv").drop('Date', axis=1)
+print(returns.head())
 
 
 # Using exp weighted covar lambda = 0.94, calculate VaR of each port (VaR as $)

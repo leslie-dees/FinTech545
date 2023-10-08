@@ -6,8 +6,6 @@ import sys
 sys.path.append('C:/Users/lesli/Documents/Duke/Masters/FinTech545')
 import fin_package_3 as f3
 from scipy.optimize import minimize
-from sklearn.neighbors import KernelDensity
-from scipy.optimize import root_scalar
 
 alpha = 0.05
 def return_calculate(prices_df, method="DISCRETE", date_column="Date"):
