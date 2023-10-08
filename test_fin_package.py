@@ -9,11 +9,9 @@ from scipy.stats import t
 from tqdm import tqdm
 
 from fin_package import (
-    first4Moments, # done
-    calc_estimated_kurtosis, # don't need to test
+    first4Moments, # done -> tested in calc_estimated_kurtosis
+    calc_estimated_kurtosis, # done -> shows working first4Moments
     perform_ols, # unable to verify results
-    mle_normal_distribution, # replaced with one input
-    mle_t_distribution, # replaced with one input
     mle_normal_distribution_one_input, # done
     mle_t_distribution_one_input, #done, still need to figure out issue with t distribution fitting. use t.fit for now
     simulate_MA, # unable to verify results
@@ -26,11 +24,9 @@ from fin_package import (
     calculate_ewma_covariance_matrix, # done
     chol_psd, # done
     near_psd, # done
-    is_psd, # don't need to test
     calculate_prices, # unable to validate
-    higham_near_psd, # done
-    multivariate_normal_simulation, # unable to validate
-    simulate_and_print_norms, # unable to validate
+    higham_near_psd, # done 
+    multivariate_normal_simulation, # done
     calculate_portfolio_var, # done
     return_calculate, # done
     portfolio_es # done
@@ -160,6 +156,45 @@ def test_return_calculate():
 
     assert_frame_equal(test_returns, dailyreturns, rtol=1e-3)
 
+def test_multivariate_normal_simulation():
+    mean = np.array([0, 0])
+    cov_matrix = pd.DataFrame(data=[[1, 0.5], [0.5, 2]])
+    num_samples = 1000
+
+    # Test Direct method
+    direct_simulations = multivariate_normal_simulation(mean, cov_matrix, num_samples, method='Direct')
+    
+    # Test PCA method with 100% variance explained
+    pca_simulations_full = multivariate_normal_simulation(mean, cov_matrix, num_samples, method='PCA', pca_explained_var=1.0)
+    
+    # Test PCA method with 50% variance explained
+    pca_simulations_half = multivariate_normal_simulation(mean, cov_matrix, num_samples, method='PCA', pca_explained_var=0.5)
+
+    # Assert that the shapes of the simulation results match the expected shape
+    assert direct_simulations.shape == (num_samples, 2)
+    assert pca_simulations_full.shape == (num_samples, 2)
+    assert pca_simulations_half.shape == (num_samples, 2)
+
+    # Calculate sample mean and covariance
+    direct_mean = np.mean(direct_simulations, axis=0)
+    direct_covariance = np.cov(direct_simulations, rowvar=False)
+    
+    pca_full_mean = np.mean(pca_simulations_full, axis=0)
+    pca_full_covariance = np.cov(pca_simulations_full, rowvar=False)
+
+    # Define expected mean and covariance based on input parameters
+    expected_mean = mean
+    expected_covariance = cov_matrix
+
+    # Set a tolerance level for comparisons
+    tolerance = 0.2  # Adjust this value as needed
+
+    # Assertions for mean and covariance
+    assert np.allclose(direct_mean, expected_mean, atol=tolerance)
+    assert np.allclose(direct_covariance, expected_covariance, atol=tolerance)
+    
+    assert np.allclose(pca_full_mean, expected_mean, atol=tolerance)
+    assert np.allclose(pca_full_covariance, expected_covariance, atol=tolerance)
 
 if __name__ == "__main__":
     pytest.main()
