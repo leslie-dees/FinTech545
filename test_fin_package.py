@@ -14,8 +14,8 @@ from fin_package import (
     perform_ols, # unable to verify results
     mle_normal_distribution_one_input, # done
     mle_t_distribution_one_input, #done, still need to figure out issue with t distribution fitting. use t.fit for now
-    simulate_MA, # unable to verify results
-    simulate_AR, # unable to verify results
+    simulate_MA, # Results skewed due to randomness in testing, failure in method
+    simulate_AR, # Results skewed due to randomness in testing, failure in method
     plot_acf_pacf, # don't need to test plotting
     calc_var_normal, # unable to verify results
     calc_var_t_dist, # dependent on broken method
@@ -195,6 +195,28 @@ def test_multivariate_normal_simulation():
     
     assert np.allclose(pca_full_mean, expected_mean, atol=tolerance)
     assert np.allclose(pca_full_covariance, expected_covariance, atol=tolerance)
+
+# def test_simulate_MA():
+#     N = 1
+#     num_steps = 1000
+#     burn_in = 30
+#     e = np.random.randn(num_steps + burn_in)
+#     mean = 0
+
+#     y, mean_y, var_y = simulate_MA(N, num_steps, e, burn_in, mean, plot_y=False)
+
+#     assert np.isclose(mean_y, mean, rtol=1e-1)  # Check mean is close to the specified mean
+
+# def test_simulate_AR():
+#     N = 1
+#     num_steps = 1000
+#     burn_in = 30
+#     e = np.random.randn(num_steps + burn_in)
+#     mean = 0
+
+#     y, mean_y, var_y = simulate_AR(N, num_steps, e, burn_in, mean, plot_y=False)
+
+#     assert np.isclose(mean_y, mean, rtol=1e-1)  # Check mean is close to the specified mean
 
 if __name__ == "__main__":
     pytest.main()
