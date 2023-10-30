@@ -142,3 +142,20 @@ CSV.write("data/testout_5.3.csv",DataFrame(cout,:auto))
 cin = CSV.read("data/test5_3.csv",DataFrame) |> Matrix
 cout = cov(simulateNormal(100000, cin,fixMethod=higham_nearestPSD))
 CSV.write("data/testout_5.4.csv",DataFrame(cout,:auto))
+
+# 5.5 PSD Input - PCA Simulation
+cin = CSV.read("data/test5_2.csv",DataFrame) |> Matrix
+cout = cov(simulate_pca(cin,100000,pctExp=.99))
+CSV.write("data/testout_5.5.csv",DataFrame(cout,:auto))
+
+# Test 6
+
+# 6.1 Arithmetic returns
+prices = CSV.read("data/test6.csv",DataFrame)
+rout = return_calculate(prices,dateColumn="Date")
+CSV.write("data/test6_1.csv",rout)
+
+# 6.2 Log returns
+prices = CSV.read("data/test6.csv",DataFrame)
+rout = return_calculate(prices,method="LOG", dateColumn="Date")
+CSV.write("data/test6_2.csv",rout)
