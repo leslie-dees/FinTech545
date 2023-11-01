@@ -113,9 +113,9 @@ function sim_bsm(underlying,strike,days,rf,b,ivol,tradingDayYear,nSim)
     vals = Vector{Float64}(undef,nSim)
 
     d = Normal(b/tradingDayYear - 0.5*dailyVol^2,dailyVol)
-    r = Vector{Float64}(undef,days)
 
     Threads.@threads for sim in 1:nSim
+        r = Vector{Float64}(undef,days)
         p = underlying
         rand!(d,r)
         for day in 1:days
