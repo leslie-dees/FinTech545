@@ -4,12 +4,13 @@ import statsmodels.api as sm
 from statsmodels.graphics.tsaplots import plot_acf, plot_pacf
 import matplotlib.pyplot as plt
 import seaborn as sns
-from scipy.stats import norm, t
+from scipy.stats import norm, t, lognorm
 from scipy.optimize import minimize
 from scipy.integrate import quad
 import pandas as pd
 import time
 from tqdm import tqdm
+import math
 
 def first4Moments(sample, excess_kurtosis=True):
     # Calculate the raw moments
@@ -705,3 +706,84 @@ def calculate_prices(returns, initial_price, method="classical_brownian", print_
         print(f"Standard Deviation of {method}: {std_deviation}\n")
 
     return prices, expected_value, std_deviation
+
+
+def integral_bsm_with_coupons(call, underlying, strike, days, rf, ivol, tradingDayYear, couponRate, function_type = "Black Scholes", q=None):
+    
+    if function_type == "Black Scholes":
+        b = rf
+    if function_type == "Merton":
+        b = rf - q
+    
+    # time to maturity
+    ttm = days / tradingDayYear
+
+    # daily volatility with continuously compounded implied volatility
+    dailyVol = ivol / np.sqrt(tradingDayYear)
+
+    # std dev and mean for log normal distribution
+    sigma = np.sqrt(days) * dailyVol
+    mu = np.log(underlying) + ttm * b - 0.5 * sigma**2
+
+    # log normal distribution
+    d = lognorm(scale=np.exp(mu), s=sigma)
+
+    # calculate the present value of coupons
+    couponPV = 0.0
+    for day in range(int(ttm * tradingDayYear)):
+        # present value of the coupon payment for each day, 
+         couponPV += couponRate * np.exp(-rf * (day / tradingDayYear))
+
+    if call:
+        # option value for call
+        def f(x):
+            return (max(0, x - strike) + couponPV) * d.pdf(x)
+        val, _ = quad(f, 0, underlying * 2)
+    else:
+        # option value for put
+        def g(x):
+            return (max(0, strike - x) + couponPV) * d.pdf(x)
+        val, _ = quad(g, 0, underlying * 2)
+
+    return val * np.exp(-rf * ttm)
+
+
+# Calculate the implied volatility for each option
+def options_price(S, X, T, sigma, r, b, option_type='call'):
+    """
+    S: Underlying Price
+    X: Strike
+    T: Time to Maturity(in years)
+    sigma: implied volatility
+    r: risk free rate
+    b: cost of carry -> r if black scholes, r-q if merton
+    """
+    d1 = (math.log(S/X) + (b + (sigma**2)/2)*T) / (sigma * math.sqrt(T))
+    d2 = d1 - sigma * math.sqrt(T)
+
+    if option_type == 'call':
+        return S * math.exp((b - r) * T) * norm.cdf(d1) - X * math.exp(-r * T) * norm.cdf(d2)
+    else:
+        return X * math.exp(-r * T) * norm.cdf(-d2) - S * math.exp((b - r) * T) * norm.cdf(-d1)
+    
+
+# function to calculate the option price error
+def option_price_error(sigma, S, X, T, r, b, option_type, market_price):
+    option_price = options_price(S, X, T, sigma, r, b, option_type)
+    return abs(option_price - market_price)
+
+# AR(1) method
+def simulate_ar1_process(N, alpha, sigma, mu, num_steps):
+    # Initialize variables
+    y = np.empty((N, num_steps))
+    
+    for i in range(N):
+        # Generate random noise
+        epsilon = np.random.normal(0, sigma, num_steps)
+        # Initialize the process with a random value
+        y[i, 0] = mu + epsilon[0]
+        
+        for t in range(1, num_steps):
+            y[i, t] = mu + alpha * (y[i, t - 1] - mu) + epsilon[t]
+    
+    return y
