@@ -11,6 +11,7 @@ import pandas as pd
 import time
 from tqdm import tqdm
 import math
+from datetime import datetime
 
 def first4Moments(sample, excess_kurtosis=True):
     # Calculate the raw moments
@@ -402,7 +403,6 @@ def calculate_ewma_covariance_matrix(df, lambd):
         deviation = df.iloc[t, :] - means  
         
         # weighted deviation from means for x and y
-        ### NEED TO PERFORM ELEMENT WISE OPERATION, FIX THIS
         ewma_cov_matrix += normalized_weights[t] * deviation.values.reshape(-1, 1) @ deviation.values.reshape(1, -1)
     ewma_cov_matrix = pd.DataFrame(ewma_cov_matrix)
     return ewma_cov_matrix
@@ -748,7 +748,7 @@ def integral_bsm_with_coupons(call, underlying, strike, days, rf, ivol, tradingD
     return val * np.exp(-rf * ttm)
 
 
-# Calculate the implied volatility for each option
+# Calculate options price
 def options_price(S, X, T, sigma, r, b, option_type='call'):
     """
     S: Underlying Price
@@ -758,7 +758,7 @@ def options_price(S, X, T, sigma, r, b, option_type='call'):
     r: risk free rate
     b: cost of carry -> r if black scholes, r-q if merton
     """
-    d1 = (math.log(S/X) + (b + (sigma**2)/2)*T) / (sigma * math.sqrt(T))
+    d1 = (math.log(S/X) + (b + 0.5*sigma**2)*T) / (sigma * math.sqrt(T))
     d2 = d1 - sigma * math.sqrt(T)
 
     if option_type == 'call':
@@ -787,3 +787,350 @@ def simulate_ar1_process(N, alpha, sigma, mu, num_steps):
             y[i, t] = mu + alpha * (y[i, t - 1] - mu) + epsilon[t]
     
     return y
+
+
+# Calculate implied volatility using bisection
+def calculate_implied_volatility(curr_stock_price, strike_price, current_date, options_expiration_date, risk_free_rate, continuously_compounding_coupon, option_type, tol=1e-4, max_iter=300):
+    S = curr_stock_price
+    X = strike_price
+    T = (options_expiration_date - current_date).days / 365
+    r = risk_free_rate
+    q = continuously_compounding_coupon
+    b = r-q
+    def calc_option_price(sigma):
+        option_price = options_price(S, X, T, sigma, r, b, option_type)
+        return option_price
+    
+    iteration = 0
+    lower_vol = 0.001
+    upper_vol = 15.0
+
+    while iteration <= max_iter:
+        mid_vol = (lower_vol + upper_vol) / 2
+        option_price = calc_option_price(mid_vol)
+
+        if abs(option_price) < tol:
+            return mid_vol
+        
+        if option_price >0:
+            upper_vol = mid_vol
+        else:
+            lower_vol = mid_vol
+
+        iteration +=1
+
+    raise ValueError( "Implied volatility calculation did not converge")
+
+# separate implied volatility function to help puts converge
+def calculate_implied_volatility_newton(curr_stock_price, strike_price, current_date, options_expiration_date, risk_free_rate, continuously_compounding_coupon, option_type, tol=1e-5, max_iter=500):
+    S = curr_stock_price
+    X = strike_price
+    T = (options_expiration_date - current_date).days / 365
+    r = risk_free_rate
+    q = continuously_compounding_coupon
+    b = r - q
+
+    def calc_option_price(sigma):
+        option_price = options_price(S, X, T, sigma, r, b, option_type)
+        return option_price
+
+    def calc_vega(sigma):
+        d1 = (math.log(S / X) + (b + 0.5 * sigma**2) * T) / (sigma * math.sqrt(T))
+        vega = S * math.exp((b - r) * T) * norm.pdf(d1) * math.sqrt(T)
+        return vega
+
+    iteration = 0
+    volatility = 0.2  # Initial guess
+
+    while iteration <= max_iter:
+        option_price = calc_option_price(volatility)
+        vega = calc_vega(volatility)
+
+        if abs(option_price) < tol:
+            return volatility
+
+        volatility = volatility - option_price / vega
+
+        iteration += 1
+
+    raise ValueError("Implied volatility calculation did not converge")
+
+# Closed form greeks
+def greeks(underlying_price, strike_price, risk_free_rate, implied_volatility, continuous_dividend_rate, current_date, expiration_date, option_type):
+    T = (expiration_date - current_date).days / 365
+    r = risk_free_rate
+    q = continuous_dividend_rate
+    b = r - q
+    S = underlying_price
+    X = strike_price
+    sigma = implied_volatility
+
+    d1 = (np.log(S/X)+(b+(0.5*sigma**2))*T)/(sigma*np.sqrt(T))
+    d2 = d1 - sigma*np.sqrt(T)
+
+    if option_type == 'call':
+        delta = np.exp((b-r)*T)*norm.cdf(d1)
+        theta = -1*(S*np.exp((b-r)*T)*norm.pdf(d1)*sigma)/(0.5*np.sqrt(T)) - (b-r)*S*np.exp((b-r)*T)*norm.cdf(d1) - r*X*np.exp(-r*T)*norm.cdf(d2)
+        rho = T*X*np.exp(-r*T)*norm.cdf(d2)
+        carry_rho = T*S*np.exp((b-r)*T)*norm.cdf(d2)
+
+    else:
+        delta = np.exp((b-r)*T)*(norm.cdf(d1) - 1)
+        theta = -1*(S*np.exp((b-r)*T)*norm.pdf(d1)*sigma)/(0.5*np.sqrt(T)) + (b-r)*S*np.exp((b-r)*T)*norm.cdf(-1*d1) + r*X*np.exp(-r*T)*norm.cdf(-1*d2)
+        rho = -1*T*X*np.exp(-r*T)*norm.cdf(-d2)
+        carry_rho = -1*T*S*np.exp((b-r)*T)*norm.cdf(-d2)
+
+    gamma = norm.pdf(d1)*np.exp((b-r)*T)/(S*sigma*(np.sqrt(T)))
+    vega = S*np.exp((b-r)*T)*norm.pdf(d1)*np.sqrt(T)
+
+    return delta, gamma, vega, theta, rho, carry_rho
+
+# finite difference derivative calculation greeks
+def greeks_df(underlying_price, strike_price, risk_free_rate, implied_volatility, continuous_dividend_rate, current_date, expiration_date, option_type, epsilon = 0.01):
+    T = (expiration_date - current_date).days / 365
+    r = risk_free_rate
+    q = continuous_dividend_rate
+    b = r - q
+    S = underlying_price
+    X = strike_price
+    sigma = implied_volatility
+
+    #options_price(S, X, T, sigma, r, b, option_type='call')
+
+    def derivative(variable = None):
+        if variable == "underlying": # delta
+            up_price = options_price(S+epsilon, X, T, sigma, r, b, option_type)
+            down_price = options_price(S-epsilon, X, T, sigma, r, b, option_type)
+            return (up_price-down_price)/(2*epsilon)
+        if variable == "double_underlying": # gamma
+            up_price = options_price(S+epsilon, X, T, sigma, r, b, option_type)
+            down_price = options_price(S-epsilon, X, T, sigma, r, b, option_type)
+            reg_price = options_price(S, X, T, sigma, r, b, option_type)
+            return (up_price+down_price-2*reg_price)/(epsilon**2)
+        if variable == "implied_volatility": # vega
+            up_price = options_price(S, X, T, sigma+epsilon, r, b, option_type)
+            down_price = options_price(S, X, T, sigma-epsilon, r, b, option_type)
+            return (up_price-down_price)/(2*epsilon)
+        if variable == "time_to_maturity": # theta
+            up_price = options_price(S, X, T+epsilon, sigma, r, b, option_type)
+            down_price = options_price(S, X, T-epsilon, sigma, r, b, option_type)
+            return -(up_price-down_price)/ (2*epsilon)
+        if variable == 'risk_free_rate': #rho
+            up_price = options_price(S, X, T, sigma, r+epsilon, b, option_type)
+            down_price = options_price(S, X, T, sigma, r-epsilon, b, option_type)
+            return (up_price-down_price)/(2*epsilon)
+        if variable == 'cost_of_carry': # carry rho
+            up_price = options_price(S, X, T, sigma, r, b+epsilon, option_type)
+            down_price = options_price(S, X, T, sigma, r, b-epsilon, option_type)
+            return (up_price-down_price)/(2*epsilon)
+
+    delta = derivative("underlying")
+    gamma = derivative("double_underlying")
+    vega = derivative("implied_volatility")
+    theta = derivative("time_to_maturity")
+    rho = derivative("risk_free_rate")
+    carry_rho = derivative("cost_of_carry")
+
+    return delta, gamma, vega, theta, rho, carry_rho
+
+def greeks_with_dividends(underlying_price, strike_price, risk_free_rate, implied_volatility, continuous_dividend_rate, current_date, expiration_date, option_type, div_dates, div_amounts):
+    T = (expiration_date - current_date).days / 365
+    r = risk_free_rate
+    q = continuous_dividend_rate
+    b = r - q
+    S = underlying_price
+    X = strike_price
+    sigma = implied_volatility
+
+    # Calculate present value of dividends
+    pv_dividends = 0
+    for div_date, div_amount in zip(div_dates, div_amounts):
+        if div_date > current_date and div_date < expiration_date:
+            pv_dividends += div_amount * np.exp(-r * (div_date - current_date).days / 365)
+
+    # Adjust underlying price for dividends
+    S_adj = S - pv_dividends
+
+    d1 = (np.log(S_adj / X) + (b + 0.5 * sigma ** 2) * T) / (sigma * np.sqrt(T))
+    d2 = d1 - sigma * np.sqrt(T)
+
+    if option_type == 'call':
+        delta = np.exp((b - r) * T) * norm.cdf(d1)
+        theta = -1 * (S_adj * np.exp((b - r) * T) * norm.pdf(d1) * sigma) / (0.5 * np.sqrt(T)) - (b - r) * S_adj * np.exp((b - r) * T) * norm.cdf(d1) - r * X * np.exp(-r * T) * norm.cdf(d2)
+        rho = T * X * np.exp(-r * T) * norm.cdf(d2)
+        carry_rho = T * S_adj * np.exp((b - r) * T) * norm.cdf(d2)
+
+    else:
+        delta = np.exp((b - r) * T) * (norm.cdf(d1) - 1)
+        theta = -1 * (S_adj * np.exp((b - r) * T) * norm.pdf(d1) * sigma) / (0.5 * np.sqrt(T)) + (b - r) * S_adj * np.exp((b - r) * T) * norm.cdf(-1 * d1) + r * X * np.exp(-r * T) * norm.cdf(-1 * d2)
+        rho = -1 * T * X * np.exp(-r * T) * norm.cdf(-d2)
+        carry_rho = -1 * T * S_adj * np.exp((b - r) * T) * norm.cdf(-d2)
+
+    gamma = norm.pdf(d1) * np.exp((b - r) * T) / (S_adj * sigma * (np.sqrt(T)))
+    vega = S_adj * np.exp((b - r) * T) * norm.pdf(d1) * np.sqrt(T)
+
+    return delta, gamma, vega, theta, rho, carry_rho
+
+
+# Binomial tree European option
+def binomial_tree_option_pricing_european(underlying_price, strike_price, current_date, expiration_date, risk_free_rate, dividend_yield, implied_volatility, num_steps, option_type):
+    S = underlying_price
+    X = strike_price
+    T = (expiration_date - current_date).days / 365.0
+    r = risk_free_rate
+    q = dividend_yield
+    b = r - q
+    sigma = implied_volatility
+    N = num_steps
+
+    # parameters
+    dt = T / N
+    u = np.exp(sigma * np.sqrt(dt))
+    d = 1 / u
+    pu = (np.exp((b) * dt) - d) / (u - d)
+    pd = 1.0 - pu
+
+    # initialize arrays
+    ps = np.zeros(N+1)
+    paths = np.zeros(N+1)
+    prices = np.zeros(N+1)
+
+    # calculate factorials
+    n_fact = math.factorial(N)
+
+    # calculate stock prices at each node
+    for i in range(N+1):
+        prices[i] = S * u**i * d**(N-i)
+        ps[i] = pu**i * pd**(N-i)
+        paths[i] = n_fact / (math.factorial(i) * math.factorial(N-i))
+
+    # Calculate option payoff at each leaf
+    if option_type == 'call':
+        prices = np.maximum(0, prices-X)
+    else:
+        prices = np.maximum(X-prices, 0)
+
+    # calculate final option prices as the discounted expected payoff
+    prices = prices * ps
+    option_price = np.dot(prices, paths)
+    return np.exp(-r * T) * option_price
+
+
+def binomial_tree_option_pricing_american(underlying_price, strike_price, ttm, risk_free_rate, b, implied_volatility, num_steps, option_type):
+    S = underlying_price
+    X = strike_price
+    T = ttm
+    r = risk_free_rate
+    sigma = implied_volatility
+    N = num_steps
+
+    dt = T / N
+    u = np.exp(sigma * np.sqrt(dt))
+    d = 1 / u
+    pu = (np.exp(b * dt) - d) / (u - d)
+    pd = 1.0 - pu
+    df = np.exp(-r * dt)
+    if option_type == 'call':
+        z = 1
+    else:
+        z = -1
+    
+    def nNodeFunc(n):
+        return int((n + 1) * (n + 2) / 2)
+
+    def idxFunc(i, j):
+        return nNodeFunc(j - 1) + i
+    
+    nNodes = nNodeFunc(N) - 1
+
+    optionValues = np.empty(nNodes+1)  # Increase the size by 1
+
+    for j in range(N, -1, -1):
+        for i in range(j, -1, -1):
+            idx = idxFunc(i, j)
+            price = S * (u ** i) * (d ** (j - i))
+            optionValues[idx] = max(0, z * (price - X))
+
+            if j < N:
+                optionValues[idx] = max(
+                    optionValues[idx],
+                    df * (pu * optionValues[idxFunc(i + 1, j + 1)] + pd * optionValues[idxFunc(i, j + 1)]),
+                )
+
+    return optionValues[0]
+
+def binomial_tree_option_pricing_american_complete(underlying_price, strike_price, ttm, risk_free_rate, implied_volatility, num_steps, option_type, div_amounts = None, div_times = None):
+    S = underlying_price
+    X = strike_price
+    T = ttm
+    r = risk_free_rate
+    sigma = implied_volatility
+    N = num_steps
+
+    if (div_amounts is None) or (div_times is None) or len(div_amounts) == 0 or len(div_times) == 0 or div_times[0] > N:
+        return binomial_tree_option_pricing_american(S, X, T, risk_free_rate, risk_free_rate, implied_volatility, num_steps, option_type)
+    
+    dt = T / N
+    u = np.exp(sigma * np.sqrt(dt))
+    d = 1 / u
+    pu = (np.exp(r * dt) - d) / (u - d)
+    pd = 1.0 - pu
+    df = np.exp(-r * dt)
+    if option_type == 'call':
+        z = 1
+    else:
+        z = -1
+
+    def nNodeFunc(n):
+        return int((n + 1) * (n + 2) / 2)
+
+    def idxFunc(i, j):
+        return nNodeFunc(j - 1) + i + 1
+
+    nDiv = len(div_times)
+    n_nodes = nNodeFunc(N)
+    option_values = np.empty(n_nodes + 1)  # Increase the size by 1
+
+    for j in range(div_times[0], -1, -1):  # Use a float range for j
+        for i in range(j, -1, -1):  # Use a float range for i
+            idx = idxFunc(i, j)
+            price = S * (u ** i) * (d ** (j - i))
+
+            if j < div_times[0]:
+                # times before or at the dividend working backward induction
+                option_values[idx] = max(0, z * (price - X))
+                option_values[idx] = max(option_values[idx], df * (pu * option_values[idxFunc(i + 1, j + 1)] + pd * option_values[idxFunc(i, j + 1)]))
+            else:
+                # time after the dividend
+                val_no_exercise = binomial_tree_option_pricing_american_complete(price-div_amounts[0], X, ttm-div_times[0]*dt, risk_free_rate, implied_volatility, N-div_times[0], option_type, div_amounts[1:nDiv], div_times[1:nDiv] - div_times[0])
+                val_exercise = max(0, z * (price - X))
+                option_values[idx] = max(val_no_exercise, val_exercise)
+
+    return option_values[0]
+
+# Function to calculate the portfolio value for a given underlying value
+def calculate_portfolio_value_american(underlying_value, portfolio, current_date, dividend_payment_date, risk_free_rate):
+    portfolio_value = 0.0
+
+    for _, asset in portfolio.iterrows():
+        if asset['Type'] == 'Option':
+            S = underlying_value
+            X = asset['Strike']
+            expiration_date = datetime.strptime(asset['ExpirationDate'], "%m/%d/%Y")
+            T = (expiration_date - current_date).days / 365.0
+            option_type = asset['OptionType']
+            dividend_payment_time = np.array([(dividend_payment_date - current_date).days])
+            dividend_payment = np.array([1])
+
+            implied_volatility = calculate_implied_volatility_newton(S, X, current_date, expiration_date, risk_free_rate, 0, option_type)
+
+            # Calculate the american option price using tree method
+            option_value = binomial_tree_option_pricing_american_complete(S, X, T, risk_free_rate, implied_volatility, (dividend_payment_date - current_date).days+1, option_type, dividend_payment, dividend_payment_time)
+
+            # Add or subtract option value to the portfolio based on Holding (1 or -1)
+            portfolio_value += asset['Holding'] * option_value
+        elif asset['Type'] == 'Stock':
+            # If it's a stock, just add its current price to the portfolio value
+            portfolio_value += asset['Holding'] * (asset['CurrentPrice'] - underlying_value)
+
+    return portfolio_value
