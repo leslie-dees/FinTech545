@@ -1,4 +1,7 @@
 
+using LinearAlgebra
+using Distributions
+
 #simple volatility Attribution example
 corel = fill(0.9,(3,3))
 for i in 1:3
