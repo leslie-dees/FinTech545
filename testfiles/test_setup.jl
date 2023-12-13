@@ -159,3 +159,146 @@ CSV.write("data/test6_1.csv",rout)
 prices = CSV.read("data/test6.csv",DataFrame)
 rout = return_calculate(prices,method="LOG", dateColumn="Date")
 CSV.write("data/test6_2.csv",rout)
+
+# Test 7
+
+d = Normal(.05,.05)
+x = rand(d,100)
+CSV.write("data/test7_1.csv",DataFrame([x],:auto))
+
+d = TDist(10)*.05 + .05
+x = rand(d,100)
+kurtosis(x)
+CSV.write("data/test7_2.csv",DataFrame([x],:auto))
+
+corr = fill(0.5,(3,3)) + I(3)*.5
+sd = [.02,.03,.04]
+covar = diagm(sd)*corr*diagm(sd)
+x = rand(MvNormal([0,0,0],covar),100)'
+e = rand(TDist(10)*.05 + .05,100)
+B = [1,2,3]
+y = x*B + e
+cout = DataFrame(x,:auto)
+cout[!,:y] = y
+CSV.write("data/test7_3.csv",cout)
+
+
+# 7.1 Fit Normal Distribution
+cin = CSV.read("data/test7_1.csv",DataFrame) |> Matrix
+fd = fit_normal(cin[:,1])
+CSV.write("data/testout7_1.csv",DataFrame(:mu=>[fd.errorModel.μ],:sigma=>[fd.errorModel.σ]))
+
+# 7.2 Fit TDist
+cin = CSV.read("data/test7_2.csv",DataFrame) |> Matrix
+fd = fit_general_t(cin[:,1])
+CSV.write("data/testout7_2.csv",DataFrame(:mu=>[fd.errorModel.μ],:sigma=>[fd.errorModel.σ],:nu=>[fd.errorModel.ρ.ν]))
+
+# 7.3 Fit T Regression
+cin = CSV.read("data/test7_3.csv",DataFrame)
+fd = fit_regression_t(cin.y,Matrix(select(cin,Not(:y))))
+CSV.write("data/testout7_3.csv",
+    DataFrame(:mu=>[fd.errorModel.μ],
+            :sigma=>[fd.errorModel.σ],
+            :nu=>[fd.errorModel.ρ.ν],
+            :Alpha=>[fd.beta[1]],
+            :B1=>[fd.beta[2]],
+            :B2=>[fd.beta[3]],
+            :B3=>[fd.beta[4]]            
+))
+
+
+# Test 8
+
+# Test 8.1 VaR Normal
+cin = CSV.read("data/test7_1.csv",DataFrame) |> Matrix
+fd = fit_normal(cin[:,1])
+CSV.write("data/testout8_1.csv",
+    DataFrame(Symbol("VaR Absolute")=>[VaR(fd.errorModel)],
+            Symbol("VaR Diff from Mean")=>[-quantile(Normal(0,fd.errorModel.σ),0.05)]
+))
+
+# Test 8.2 VaR TDist
+cin = CSV.read("data/test7_2.csv",DataFrame) |> Matrix
+fd = fit_general_t(cin[:,1])
+CSV.write("data/testout8_2.csv",
+    DataFrame(Symbol("VaR Absolute")=>[VaR(fd.errorModel)],
+            Symbol("VaR Diff from Mean")=>[-quantile(TDist(fd.errorModel.ρ.ν)*fd.errorModel.σ,0.05)]
+))
+
+# Test 8.3 VaR Simulation
+cin = CSV.read("data/test7_2.csv",DataFrame) |> Matrix
+fd = fit_general_t(cin[:,1])
+sim = fd.eval(rand(10000))
+CSV.write("data/testout8_3.csv",
+    DataFrame(Symbol("VaR Absolute")=>[VaR(sim)],
+            Symbol("VaR Diff from Mean")=>[VaR(sim .- mean(sim))]
+))
+
+
+# Test 8.4 ES Normal
+cin = CSV.read("data/test7_1.csv",DataFrame) |> Matrix
+fd = fit_normal(cin[:,1])
+CSV.write("data/testout8_4.csv",
+    DataFrame(Symbol("ES Absolute")=>[ES(fd.errorModel)],
+            Symbol("ES Diff from Mean")=>[ES(Normal(0,fd.errorModel.σ))]
+))
+
+# Test 8.5 ES TDist
+cin = CSV.read("data/test7_2.csv",DataFrame) |> Matrix
+fd = fit_general_t(cin[:,1])
+CSV.write("data/testout8_5.csv",
+    DataFrame(Symbol("ES Absolute")=>[ES(fd.errorModel)],
+            Symbol("ES Diff from Mean")=>[ES(TDist(fd.errorModel.ρ.ν)*fd.errorModel.σ)]
+))
+
+# Test 8.6 VaR Simulation
+cin = CSV.read("data/test7_2.csv",DataFrame) |> Matrix
+fd = fit_general_t(cin[:,1])
+sim = fd.eval(rand(10000))
+CSV.write("data/testout8_6.csv",
+    DataFrame(Symbol("ES Absolute")=>[ES(sim)],
+            Symbol("ES Diff from Mean")=>[ES(sim .- mean(sim))]
+))
+
+# Test 9
+A = rand(Normal(0,.03),200)
+B = 0.1*A + rand(TDist(10)*.02,200)
+CSV.write("data/test9_1_returns.csv",DataFrame(:A=>A,:B=>B))
+
+# 9.1
+cin = CSV.read("data/test9_1_returns.csv",DataFrame)
+prices = Dict{String,Float64}()
+prices["A"] = 20.0
+prices["B"] = 30
+
+models = Dict{String,FittedModel}()
+models["A"] = fit_normal(cin.A)
+models["B"] = fit_general_t(cin.B)
+
+nSim = 100000
+
+U = [models["A"].u models["B"].u]
+spcor = corspearman(U)
+uSim = simulate_pca(spcor,nSim)
+uSim = cdf.(Normal(),uSim)
+
+simRet = DataFrame(:A=>models["A"].eval(uSim[:,1]), :B=>models["B"].eval(uSim[:,2]))
+
+portfolio = DataFrame(:Stock=>["A","B"], :currentValue=>[2000.0, 3000.0])
+iteration = [i for i in 1:nSim]
+values = crossjoin(portfolio, DataFrame(:iteration=>iteration))
+
+nv = size(values,1)
+pnl = Vector{Float64}(undef,nv)
+simulatedValue = copy(pnl)
+for i in 1:nv
+    simulatedValue[i] = values.currentValue[i] * (1 + simRet[values.iteration[i],values.Stock[i]])
+    pnl[i] = simulatedValue[i] - values.currentValue[i]
+end
+
+values[!,:pnl] = pnl
+values[!,:simulatedValue] = simulatedValue
+
+risk = select(aggRisk(values,[:Stock]),[:Stock, :VaR95, :ES95, :VaR95_Pct, :ES95_Pct])
+
+CSV.write("data/testout9_1.csv",risk)
