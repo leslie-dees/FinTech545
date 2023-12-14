@@ -42,9 +42,9 @@ xnames = [:Mkt_RF, :SMB, :HML, :Mom]
 #OLS Regression for all Stocks
 X = hcat(fill(1.0,size(to_reg,1)),Matrix(to_reg[!,xnames]))
 
-
+# Regress against y matrix
 Y = Matrix(to_reg[!,stocks])
-Betas = (inv(X'*X)*X'*Y)'[:,2:size(xnames,1)+1]
+Betas = (inv(X'*X)*X'*Y)'[:,2:size(xnames,1)+1] # matrix of our Betas
 
 max_dt = max(to_reg.Date...)
 min_dt = max_dt - Year(10)
@@ -102,7 +102,7 @@ for i in 1:n
     weights[i,:] = lastW
 
     # Update Weights by return
-    lastW = lastW .* (1.0 .+ matReturns[i,:])
+    lastW = lastW .* (1.0 .+ matReturns[i,:]) # elementwise multiplication
     
     # Portfolio return is the sum of the updated weights
     pR = sum(lastW)

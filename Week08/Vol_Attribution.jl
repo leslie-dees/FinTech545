@@ -25,6 +25,7 @@ println("Test if attribution sums correctly: $(sum(csd) ≈ pStd)")
 
 
 #Simulate 1000 Asset Return
+# Multivariate normal simulation
 n = 1_000
 d = MvNormal(fill(0.,3), covar)
 sim = rand(d,n)'
@@ -36,10 +37,10 @@ println("Portfolio Vol: $(std(ret))")
 println("Actual P Vol: $pStd")
 
 #Vol Attribution
-X = hcat(fill(1.0,n),ret)
-Y = sim .* w'
-B_s_p = (inv(X'*X)*X'*Y)[2,:]
-cSD2 = B_s_p * std(ret)
+X = hcat(fill(1.0,n),ret) # portfolio returns and 1s
+Y = sim .* w' # simulated values elementwise multiplied by weights
+B_s_p = (inv(X'*X)*X'*Y)[2,:] # Doing OLS, pick off the Beta vlues
+cSD2 = B_s_p * std(ret) # multiplied by std dev of portfolio
 
 for i in 1:3
     println("Asset $i Vol Contribution: $(cSD2[i])")

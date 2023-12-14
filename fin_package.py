@@ -13,6 +13,21 @@ from tqdm import tqdm
 import math
 from datetime import datetime
 
+def covariance_matrix(input_df, skipna=True):
+    # calculate the covariance matrix either pairwise or skipping rows
+
+    if skipna:
+        return input_df.dropna().cov()
+    else:
+        return input_df.cov()
+
+def correlation_matrix(input_df, skipna=True):
+    # calculate the correlation matrix either pairwise or skipping rows
+    if skipna:
+        return input_df.dropna().corr()
+    else:
+        return input_df.corr()
+
 def first4Moments(sample, excess_kurtosis=True):
     # Calculate the raw moments
     mean_hat = moment(sample, moment=1)
@@ -375,6 +390,8 @@ def calc_expected_shortfall_t(mean, std_dev, df, alpha=0.05):
     return es/alpha
 
 def calculate_ewma_covariance_matrix(df, lambd):
+    # Calculate exponentially weighted covariance matrix provided a dataframe and lambda
+
     # Get the number of time steps n and vars m
     n, m = df.shape  
     
@@ -407,10 +424,30 @@ def calculate_ewma_covariance_matrix(df, lambd):
     ewma_cov_matrix = pd.DataFrame(ewma_cov_matrix)
     return ewma_cov_matrix
 
-def chol_psd(root, a):
+def calculate_ewma_correlation_matrix(df, lambda_corr, lambda_cov=None):
+    # Calculate exponentially weighted covariance matrix provided a dataframe and lambda
+    
+    if lambda_cov is None:
+        lambda_cov = lambda_corr
+
+    ewma_cov_matrix = calculate_ewma_covariance_matrix(df, lambda_cov)
+    
+    # Calculate the standard deviations for each variable across all time steps
+    std_devs = np.sqrt(np.diag(ewma_cov_matrix))
+    
+    # Calculate the exponentially weighted correlation matrix
+    ewma_corr_matrix = ewma_cov_matrix / np.outer(std_devs, std_devs)
+        
+    return pd.DataFrame(ewma_corr_matrix)
+
+def chol_psd(a):
+    if isinstance(a, pd.DataFrame):
+        a = a.to_numpy()
+
     n = a.shape[0]
 
     # Initialize the root matrix with 0 values
+    root = np.zeros((n, n), dtype=np.float64)
     root.fill(0.0)
 
     # Loop over columns
@@ -451,6 +488,7 @@ def is_psd(matrix):
         print("Negative Eigenvalues:", negative_eigenvalues)
 
 def near_psd(a, epsilon=0.0):
+    # Ensure that a given matrix is almost positive semi-definite (PSD).
     n = a.shape[0]
 
     invSD = None
@@ -479,7 +517,9 @@ def near_psd(a, epsilon=0.0):
 
     return out
 
-def higham_near_psd(a, epsilon = 0.0, max_iterations=100):
+def higham_near_psd_np_array(a, epsilon = 0.0, max_iterations=100):
+    # use Higham to ensure near psd matrix of a numpy array
+
     # Initialize variables
     delta_S = np.zeros_like(a)  # Initialize Delta S_0 to zero
     X = np.copy(a)             # Initialize Y_0 as a copy of the input matrix a
@@ -521,6 +561,51 @@ def higham_near_psd(a, epsilon = 0.0, max_iterations=100):
 
     return X
 
+def higham_near_psd_dataframe(df, epsilon = 0.0, max_iterations=100):
+    # use Higham to ensure near psd matrix of a numpy array
+    a = df.to_numpy()
+    # Initialize variables
+    delta_S = np.zeros_like(a)  # Initialize Delta S_0 to zero
+    X = np.copy(a)             # Initialize Y_0 as a copy of the input matrix a
+    Y = np.copy(a)             # Initialize Y_0 as a copy of the input matrix a
+    diffY = np.inf
+
+    if not np.all((np.transpose(a) == a)):
+        # Check if the input matrix is symmetric; needed for eigenvalue computation
+        raise ValueError('Input Matrix is not symmetric')
+
+
+    iteration = 0
+    # Continue iterating until maximum iterations reached or until difference is within tolerance levels
+    while iteration < max_iterations:
+        iteration += 1
+        if diffY < epsilon:
+            break
+
+        Yold = np.copy(Y)  # Store the previous Y (Y_k-1)
+        R = Y - delta_S    # Calculate R_k = Y_(k-1) - Delta S_(k-1)
+        
+        # Compute the weighted R (R_k) using a diagonal weight matrix
+        W = np.sqrt(np.diag(np.diag(Y)))  # Diagonal weight matrix W
+
+        R_wtd = np.linalg.inv(W) @ (W @ R @ W) @ np.linalg.inv(W) # Apply weight matrix
+        
+        # Perform the projection onto the space of symmetric positive definite matrices
+        d, v = np.linalg.eigh(R_wtd)
+        X = v @ np.diag(np.maximum(d, 0)) @ v.T
+        
+        delta_S = X - R         # Calculate Delta S_k = X_k - R_k
+
+        Y = np.copy(X)
+        np.fill_diagonal(Y, 1)  # Y_k = P_U(X_k)
+        
+        # Compute norms for convergence checking
+        ### change Y to Covar matrix
+        diffY = np.linalg.norm(Y - Yold, 'fro') / np.linalg.norm(Y, 'fro') #lambda calc
+
+    return X
+
+
 # Implement a multivariate normal simulation that allows for simulation directly from a covar matrix or using PCA and parameter for % var explained
 def multivariate_normal_simulation(mean, cov_matrix, num_samples, method='Direct', pca_explained_var=None):
     if method == 'Direct':
@@ -528,10 +613,8 @@ def multivariate_normal_simulation(mean, cov_matrix, num_samples, method='Direct
         n = cov_matrix.shape[1]
         # Initialize an array to store the simulation results
         simulations = np.zeros((num_samples, n))
-        # Initialize the root matrix
-        root = np.zeros((n, n), dtype=np.float64)
 
-        L = chol_psd(root, cov_matrix)
+        L = chol_psd(cov_matrix)
 
         Z = np.random.randn(n, num_samples)
 
