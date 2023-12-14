@@ -4,7 +4,7 @@ import statsmodels.api as sm
 from statsmodels.graphics.tsaplots import plot_acf, plot_pacf
 import matplotlib.pyplot as plt
 import seaborn as sns
-from scipy.stats import norm, t, lognorm
+from scipy.stats import norm, t, lognorm, kurtosis
 from scipy.optimize import minimize
 from scipy.integrate import quad
 import pandas as pd
@@ -195,6 +195,7 @@ def mle_t_distribution(X, y, perform_hypothesis_test=False):
         print("Reject Null Hypothesis:", reject_null)
 
 def mle_normal_distribution_one_input(X):
+    # fit a normal distribution using a single input to obtain the mean mu and std dev sigma
     # Define the likelihood function for the normal distribution
     def log_likelihood(params, X):
         mean, var = params
@@ -764,7 +765,7 @@ def calculate_prices(returns, initial_price, method="classical_brownian", print_
         elif method == "arithmetic_return":
             # Arithmetic Return System: P_t = P_{t-1}(r_t + 1)
             p_t = prices[i] * (1 + r_t)
-        elif method == "geometric_brownian":
+        elif method == "geometric_brownian" or method == "log_return":
             # Log Return or Geometric Brownian Motion: P_t = P_{t-1}*e^{r_t}
             p_t = prices[i] * np.exp(r_t)
         else:
@@ -1207,3 +1208,28 @@ def calculate_portfolio_value_american(underlying_value, portfolio, current_date
             portfolio_value += asset['Holding'] * (asset['CurrentPrice'] - underlying_value)
 
     return portfolio_value
+
+
+def general_t_ll(params, x):
+    mu, s, nu = params
+    td = t(loc=mu, scale=s, df=nu)
+    return -np.sum(np.log(td.pdf(x)))
+
+def fit_general_t(x):
+    # Fit a general T distribution given an x input
+    start_m = np.mean(x)
+    start_nu = 6.0 / kurtosis(x) + 4
+    start_s = np.sqrt(np.var(x) * (start_nu - 2) / start_nu)
+
+    def _gtl(params):
+        return general_t_ll(params, x)
+
+    # Initial parameter values
+    initial_params = np.array([start_m, start_s, start_nu])
+
+    # Optimization using Nelder Mead
+    result = minimize(_gtl, initial_params, method='Nelder-Mead')
+
+    m, s, nu = result.x
+
+    return m, s, nu
