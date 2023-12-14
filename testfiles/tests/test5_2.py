@@ -4,8 +4,8 @@ sys.path.append('C:/Users/lesli/Documents/Duke/Masters/FinTech545')
 import fin_package as fin
 import numpy as np
 
-test_data = pd.read_csv("testfiles/data/test5_1.csv")
-testout_data = pd.read_csv("testfiles/data/testout_5.1.csv")
+test_data = pd.read_csv("testfiles/data/test5_2.csv")
+testout_data = pd.read_csv("testfiles/data/testout_5.2.csv")
 
 # Simulate normal data
 num_samples = 100000

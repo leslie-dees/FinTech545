@@ -182,6 +182,6 @@ optimize!(m)
 w = value.(w)
 riskBudget = DataFrame(:Stock=>stocks, :w=>w, :RiskBudget=>[RiskBudget(w)[1,:]...], :Rb=>rb)
 
-iStd = (1 ./ sqrt.(diag(covar)))
-correl = iStd .* covar .* iStd'
-CSV.write("c:/temp/corel.csv", DataFrame(correl, stocks))
+# iStd = (1 ./ sqrt.(diag(covar)))
+# correl = iStd .* covar .* iStd'
+# CSV.write("c:/temp/corel.csv", DataFrame(correl, stocks))

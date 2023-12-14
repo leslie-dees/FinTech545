@@ -11,22 +11,35 @@ import pandas as pd
 import time
 from tqdm import tqdm
 import math
+from numpy.linalg import eig
 from datetime import datetime
 
 def covariance_matrix(input_df, skipna=True):
     # calculate the covariance matrix either pairwise or skipping rows
 
     if skipna:
-        return input_df.dropna().cov()
+        cov_matrix = input_df.dropna().cov()
     else:
-        return input_df.cov()
+        cov_matrix = input_df.cov()
+
+    # Set the column and index names to match the input
+    cov_matrix.columns = input_df.columns
+    cov_matrix.index = input_df.columns
+
+    return cov_matrix
 
 def correlation_matrix(input_df, skipna=True):
     # calculate the correlation matrix either pairwise or skipping rows
     if skipna:
-        return input_df.dropna().corr()
+        corr_matrix = input_df.dropna().corr()
     else:
-        return input_df.corr()
+        corr_matrix = input_df.corr()
+
+    # Set the column and index names to match the input
+    corr_matrix.columns = input_df.columns
+    corr_matrix.index = input_df.columns
+
+    return corr_matrix
 
 def first4Moments(sample, excess_kurtosis=True):
     # Calculate the raw moments
@@ -515,101 +528,71 @@ def near_psd(a, epsilon=0.0):
         invSD = np.diag(1.0 / np.diag(invSD))
         out = np.dot(np.dot(invSD, out), invSD)
 
-    return out
+    # Convert the output to a DataFrame with original column names
+    out_df = pd.DataFrame(out, columns=a.columns, index=a.index)
 
-def higham_near_psd_np_array(a, epsilon = 0.0, max_iterations=100):
-    # use Higham to ensure near psd matrix of a numpy array
+    return out_df
 
-    # Initialize variables
-    delta_S = np.zeros_like(a)  # Initialize Delta S_0 to zero
-    X = np.copy(a)             # Initialize Y_0 as a copy of the input matrix a
-    Y = np.copy(a)             # Initialize Y_0 as a copy of the input matrix a
-    diffY = np.inf
+def _getAplus(A):
+    vals, vecs = eig(A)
+    vals = np.diag(np.maximum(vals, 0))
+    return vecs @ vals @ np.conj(vecs).T
 
-    if not np.all((np.transpose(a) == a)):
-        # Check if the input matrix is symmetric; needed for eigenvalue computation
-        raise ValueError('Input Matrix is not symmetric')
+def _getPS(A, W):
+    W05 = np.sqrt(W)
+    iW = np.linalg.inv(W05)
+    return iW @ _getAplus(W05 @ A @ W05) @ iW
 
+def _getPu(A, W):
+    Aret = np.copy(A)
+    np.fill_diagonal(Aret, 1.0)
+    return Aret
 
-    iteration = 0
-    # Continue iterating until maximum iterations reached or until difference is within tolerance levels
-    while iteration < max_iterations:
-        iteration += 1
-        if diffY < epsilon:
+def wgtNorm(A, W):
+    W05 = np.sqrt(W)
+    W05 = W05 @ A @ W05
+    return np.sum(W05 @ W05)
+
+def higham_nearestPSD(pc, epsilon=1e-9, maxIter=100, tol=1e-9):
+    # find nearest PSD using Higham
+
+    if isinstance(pc, pd.DataFrame):
+        pc = pc.to_numpy()
+    
+    n = pc.shape[0]
+    
+    W = np.diag(np.ones(n))
+    
+    deltaS = 0
+    Yk = np.copy(pc)
+    norml = np.finfo(float).max
+    i = 1
+
+    while i <= maxIter:
+        Rk = Yk - deltaS
+        Xk = _getPS(Rk, W)
+        deltaS = Xk - Rk
+        Yk = _getPu(Xk, W)
+        norm = wgtNorm(Yk - pc, W)
+        minEigVal = np.min(np.real(np.linalg.eigvals(Yk)))
+
+        if np.abs(norm - norml) < tol and minEigVal > -epsilon:
+            print(f"Converged in {i} iterations.")
             break
 
-        Yold = np.copy(Y)  # Store the previous Y (Y_k-1)
-        R = Y - delta_S    # Calculate R_k = Y_(k-1) - Delta S_(k-1)
-        
-        # Compute the weighted R (R_k) using a diagonal weight matrix
-        W = np.sqrt(np.diag(np.diag(Y)))  # Diagonal weight matrix W
+        norml = norm
+        i += 1
 
-        R_wtd = np.linalg.inv(W) @ (W @ R @ W) @ np.linalg.inv(W) # Apply weight matrix
-        
-        # Perform the projection onto the space of symmetric positive definite matrices
-        d, v = np.linalg.eigh(R_wtd)
-        X = v @ np.diag(np.maximum(d, 0)) @ v.T
-        
-        delta_S = X - R         # Calculate Delta S_k = X_k - R_k
-
-        Y = np.copy(X)
-        np.fill_diagonal(Y, 1)  # Y_k = P_U(X_k)
-        
-        # Compute norms for convergence checking
-        ### change Y to Covar matrix
-        diffY = np.linalg.norm(Y - Yold, 'fro') / np.linalg.norm(Y, 'fro') #lambda calc
-
-    return X
-
-def higham_near_psd_dataframe(df, epsilon = 0.0, max_iterations=100):
-    # use Higham to ensure near psd matrix of a numpy array
-    a = df.to_numpy()
-    # Initialize variables
-    delta_S = np.zeros_like(a)  # Initialize Delta S_0 to zero
-    X = np.copy(a)             # Initialize Y_0 as a copy of the input matrix a
-    Y = np.copy(a)             # Initialize Y_0 as a copy of the input matrix a
-    diffY = np.inf
-
-    if not np.all((np.transpose(a) == a)):
-        # Check if the input matrix is symmetric; needed for eigenvalue computation
-        raise ValueError('Input Matrix is not symmetric')
-
-
-    iteration = 0
-    # Continue iterating until maximum iterations reached or until difference is within tolerance levels
-    while iteration < max_iterations:
-        iteration += 1
-        if diffY < epsilon:
-            break
-
-        Yold = np.copy(Y)  # Store the previous Y (Y_k-1)
-        R = Y - delta_S    # Calculate R_k = Y_(k-1) - Delta S_(k-1)
-        
-        # Compute the weighted R (R_k) using a diagonal weight matrix
-        W = np.sqrt(np.diag(np.diag(Y)))  # Diagonal weight matrix W
-
-        R_wtd = np.linalg.inv(W) @ (W @ R @ W) @ np.linalg.inv(W) # Apply weight matrix
-        
-        # Perform the projection onto the space of symmetric positive definite matrices
-        d, v = np.linalg.eigh(R_wtd)
-        X = v @ np.diag(np.maximum(d, 0)) @ v.T
-        
-        delta_S = X - R         # Calculate Delta S_k = X_k - R_k
-
-        Y = np.copy(X)
-        np.fill_diagonal(Y, 1)  # Y_k = P_U(X_k)
-        
-        # Compute norms for convergence checking
-        ### change Y to Covar matrix
-        diffY = np.linalg.norm(Y - Yold, 'fro') / np.linalg.norm(Y, 'fro') #lambda calc
-
-    return X
+    if i == maxIter:
+        print(f"Convergence failed after {i-1} iterations")
+    
+    return Yk
 
 
 # Implement a multivariate normal simulation that allows for simulation directly from a covar matrix or using PCA and parameter for % var explained
 def multivariate_normal_simulation(mean, cov_matrix, num_samples, method='Direct', pca_explained_var=None):
     if method == 'Direct':
-        cov_matrix = cov_matrix.values
+        cov_matrix = cov_matrix#.values
         n = cov_matrix.shape[1]
         # Initialize an array to store the simulation results
         simulations = np.zeros((num_samples, n))
@@ -622,7 +605,10 @@ def multivariate_normal_simulation(mean, cov_matrix, num_samples, method='Direct
         for i in range(num_samples):
             simulations[i, :] = mean + np.dot(L, Z[:, i])
 
-        return simulations
+        # Convert the output to a DataFrame with original column names
+        simulations_df = pd.DataFrame(simulations, columns=cov_matrix.columns)
+
+        return simulations_df
     elif method == 'PCA':
         if pca_explained_var is None:
             pca_explained_var = 1.0
@@ -647,13 +633,17 @@ def multivariate_normal_simulation(mean, cov_matrix, num_samples, method='Direct
 
         # Construct a new covariance matrix using the selected eigenvectors and eigenvalues
         new_cov_matrix = np.dot(selected_eigenvectors, np.dot(np.diag(selected_eigenvalues), selected_eigenvectors.T))
-
-
+        n = cov_matrix.shape[0]
+        # Generate a mean vector based on the original mean
+        mean_vector = np.full(n, mean)
 
         n = cov_matrix.shape[0]
-        simulations = np.random.multivariate_normal(mean, new_cov_matrix, num_samples)
+        simulations = np.random.multivariate_normal(mean_vector, new_cov_matrix, num_samples)
 
-        return simulations
+        # Convert the output to a DataFrame with original column names
+        simulations_df = pd.DataFrame(simulations, columns=cov_matrix.columns)
+
+        return simulations_df
 
 def simulate_and_print_norms(cov_matrices, mean_returns, num_samples, cov_matrix_names, method='Direct', pca_explained_var=None):
     for i, (cov_matrix, cov_matrix_name) in enumerate(zip(cov_matrices, cov_matrix_names)):

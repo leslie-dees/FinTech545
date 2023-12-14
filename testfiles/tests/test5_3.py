@@ -4,12 +4,14 @@ sys.path.append('C:/Users/lesli/Documents/Duke/Masters/FinTech545')
 import fin_package as fin
 import numpy as np
 
-test_data = pd.read_csv("testfiles/data/test5_1.csv")
-testout_data = pd.read_csv("testfiles/data/testout_5.1.csv")
+test_data = pd.read_csv("testfiles/data/test5_3.csv")
+testout_data = pd.read_csv("testfiles/data/testout_5.3.csv")
+
+psd_data = fin.near_psd(test_data)
 
 # Simulate normal data
 num_samples = 100000
-cov_matrix = fin.covariance_matrix(test_data)
+cov_matrix = fin.covariance_matrix(psd_data)
 mean = 0
 simulated_data = fin.multivariate_normal_simulation(mean, cov_matrix, num_samples, method='Direct', pca_explained_var=None)
 
