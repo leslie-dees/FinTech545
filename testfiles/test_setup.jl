@@ -215,7 +215,7 @@ fd = fit_normal(cin[:,1])
 CSV.write("data/testout8_1.csv",
     DataFrame(Symbol("VaR Absolute")=>[VaR(fd.errorModel)],
             Symbol("VaR Diff from Mean")=>[-quantile(Normal(0,fd.errorModel.σ),0.05)]
-))
+))  
 
 # Test 8.2 VaR TDist
 cin = CSV.read("data/test7_2.csv",DataFrame) |> Matrix

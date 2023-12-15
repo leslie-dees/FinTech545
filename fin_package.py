@@ -365,19 +365,19 @@ def plot_acf_pacf(y, N, plot_type='AR', save_plots=False):
     plt.show()
 
 
-# Calculate VaR Normal Distribution:
+# Calculate VaR Normal Distribution: (Value at Risk)
 def calc_var_normal(mean, std_dev, alpha=0.05):
     VaR = norm.ppf(alpha, loc=mean, scale=std_dev)
 
     return -VaR
 
-# Calculte VaR T Distribution:
+# Calculte VaR T Distribution: (Value at Risk)
 def calc_var_t_dist(mean, std_dev, df, alpha=0.05):
     VaR = t.ppf(q=alpha, df=df, loc=mean, scale=std_dev)
 
     return -VaR
 
-# Calculate ES for Normal
+# Calculate ES for Normal (expected shortfall)
 def calc_expected_shortfall_normal(mean, std_dev, alpha=0.05):
     
     # Calculate ES using the formula
@@ -385,7 +385,7 @@ def calc_expected_shortfall_normal(mean, std_dev, alpha=0.05):
 
     return es
 
-# Calculate ES for Generalized T
+# Calculate ES for Generalized T (expected shortfall)
 def calc_expected_shortfall_t(mean, std_dev, df, alpha=0.05):
     # VaR for t dist
     var = -1*calc_var_t_dist(mean, std_dev, df, alpha=alpha)
@@ -1231,4 +1231,84 @@ def fit_general_t(x):
 
     m, s, nu = result.x
 
-    return m, s, nu
+    error_model = t(df=nu, loc=m, scale=s)
+
+    return m, s, nu, error_model
+
+
+# Fit regression model with T errors
+def fit_regression_t(x, y):
+    n = x.shape[0]
+
+    __x = np.column_stack((np.ones(n), x))
+    __y = y
+
+    # Fit a general T distribution given an x input
+    b_start = np.linalg.inv(__x.T @ __x) @ __x.T @ __y
+    e = __y - __x @ b_start
+    start_m = np.mean(e)
+    start_nu = 6.0 / kurtosis(e) + 4
+    start_s = np.sqrt(np.var(e) * (start_nu - 2) / start_nu)
+   
+    def _gtl(params):
+        mu, s, nu, *beta = params
+
+        xm = __y.values.reshape(-1, 1) - (__x @ beta).reshape(-1, 1)
+        new_params = [mu, s, nu]
+        return general_t_ll(new_params, xm)
+
+    # Initial parameter values
+    initial_params = np.concatenate(([start_m, start_s, start_nu], b_start))
+
+    # Optimization using Nelder Mead
+    result = minimize(_gtl, initial_params, method='Nelder-Mead')
+
+    m, s, nu, *beta = result.x
+
+    return m, s, nu, *beta
+
+
+class FittedModel:
+    def __init__(self, beta, error_model, evaluate, errors, u):
+        self.beta = beta
+        self.error_model = error_model
+        self.evaluate = evaluate
+        self.errors = errors
+        self.u = u
+
+def fit_normal(x):
+    # Mean and Std values
+    m = np.mean(x)
+    s = np.std(x)
+
+    # Create the error model
+    error_model = norm(loc=m, scale=s)
+
+    # Calculate the errors and U
+    errors = x - m
+    u = error_model.cdf(x)
+
+    def evaluate_u(quantile):
+        return error_model.ppf(quantile)
+
+    return FittedModel(None, error_model, evaluate_u, errors, u)
+
+# value at risk from a provided error model, either a norm or t dist
+def VaR_error_model(error_model, alpha=0.05):
+    return -error_model.ppf(alpha)
+
+# Expected shortfall from an error_model, either norm or t distributin
+def ES_error_model(error_model, alpha=0.05):
+    var_value = VaR_error_model(error_model, alpha)
+    
+    def integrand(x):
+        return x * error_model.pdf(x)
+
+    # Set the lower bound for integration to a very small value
+    lower_bound = error_model.ppf(1e-12)
+    
+    # Integrate the function from the lower bound to the negative VaR
+    es_value, _ = quad(integrand, lower_bound, -var_value, points=1000, epsabs=1e-8, epsrel=1e-8)
+    
+    # Divide by alpha to get the expected shortfall
+    return -es_value / alpha
