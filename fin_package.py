@@ -556,14 +556,11 @@ def wgtNorm(A, W):
 
 def higham_nearestPSD(pc, epsilon=1e-9, maxIter=100, tol=1e-9):
     # find nearest PSD using Higham
-
     if isinstance(pc, pd.DataFrame):
         pc = pc.to_numpy()
-    
+
     n = pc.shape[0]
-    
     W = np.diag(np.ones(n))
-    
     deltaS = 0
     Yk = np.copy(pc)
     norml = np.finfo(float).max
@@ -583,11 +580,13 @@ def higham_nearestPSD(pc, epsilon=1e-9, maxIter=100, tol=1e-9):
 
         norml = norm
         i += 1
-
     if i == maxIter:
         print(f"Convergence failed after {i-1} iterations")
     
-    return Yk
+    # Create a DataFrame with the same column titles as the input pc
+    result_df = pd.DataFrame(Yk, columns=pc.columns if isinstance(pc, pd.DataFrame) else None)
+    
+    return result_df
 
 
 # Implement a multivariate normal simulation that allows for simulation directly from a covar matrix or using PCA and parameter for % var explained
