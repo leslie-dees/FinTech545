@@ -560,9 +560,18 @@ def higham_nearestPSD(pc, epsilon=1e-9, maxIter=100, tol=1e-9):
         pc = pc.to_numpy()
 
     n = pc.shape[0]
+
     W = np.diag(np.ones(n))
+    
     deltaS = 0
     Yk = np.copy(pc)
+    invSD = None
+
+    # calculate the correlation matrix if we got a covariance
+    if np.count_nonzero(np.isclose(np.diag(Yk), 1.0)) != n:
+        invSD = np.diag(1.0 / np.sqrt(np.diag(Yk)))
+        Yk = invSD @ Yk @ invSD
+
     norml = np.finfo(float).max
     i = 1
 
@@ -583,6 +592,10 @@ def higham_nearestPSD(pc, epsilon=1e-9, maxIter=100, tol=1e-9):
     if i == maxIter:
         print(f"Convergence failed after {i-1} iterations")
     
+    # Add back the variance
+    if invSD is not None:
+        invSD = np.diag(1.0 / np.diag(invSD))
+        Yk = invSD @ Yk @ invSD
     # Create a DataFrame with the same column titles as the input pc
     result_df = pd.DataFrame(Yk, columns=pc.columns if isinstance(pc, pd.DataFrame) else None)
     

@@ -266,29 +266,42 @@ B = 0.1*A + rand(TDist(10)*.02,200)
 CSV.write("data/test9_1_returns.csv",DataFrame(:A=>A,:B=>B))
 
 # 9.1
+# loading in data
 cin = CSV.read("data/test9_1_returns.csv",DataFrame)
 prices = Dict{String,Float64}()
+# getting prices
 prices["A"] = 20.0
 prices["B"] = 30
 
+# dictionary for models
+# fit distributions based on what we are provided with the types of distributions of the data
 models = Dict{String,FittedModel}()
 models["A"] = fit_normal(cin.A)
 models["B"] = fit_general_t(cin.B)
 
+# getting close number through lots of simulations
 nSim = 100000
 
+# U values from the distributions (matrix of the u values from fitted models)
 U = [models["A"].u models["B"].u]
+# take correlation of the u values, use spearman bc its a rank correlation, if we use pearson we would need to transform into z scores
 spcor = corspearman(U)
+# if std dev are 1, then corr is covar matrix
 uSim = simulate_pca(spcor,nSim)
+# back to 0-1 values, are the quantiles pretty much
 uSim = cdf.(Normal(),uSim)
 
+# using fitted distribution to get p value to get something on that distribution
 simRet = DataFrame(:A=>models["A"].eval(uSim[:,1]), :B=>models["B"].eval(uSim[:,2]))
 
 portfolio = DataFrame(:Stock=>["A","B"], :currentValue=>[2000.0, 3000.0])
+# however many simulations
 iteration = [i for i in 1:nSim]
+# full simulation, need to apply returns to each of the holdings
 values = crossjoin(portfolio, DataFrame(:iteration=>iteration))
 
 nv = size(values,1)
+# empty vectors of profit and loss, and the simulated vlaues
 pnl = Vector{Float64}(undef,nv)
 simulatedValue = copy(pnl)
 for i in 1:nv

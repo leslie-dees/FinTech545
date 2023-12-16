@@ -6,8 +6,8 @@ import numpy as np
 
 
 
-test_data = pd.read_csv("testfiles/data/testout_1.3.csv")
-testout_data = pd.read_csv("testfiles/data/testout_3.3.csv")
+test_data = pd.read_csv("testfiles/data/testout_1.4.csv")
+testout_data = pd.read_csv("testfiles/data/testout_3.4.csv")
 
 # near_psd covariance
 
