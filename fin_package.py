@@ -1221,6 +1221,12 @@ def calculate_portfolio_value_american(underlying_value, portfolio, current_date
 
     return portfolio_value
 
+class FittedModel:
+    def __init__(self, beta, error_model, evaluate, u):
+        self.beta = beta
+        self.error_model = error_model
+        self.evaluate = evaluate
+        self.u = u
 
 def general_t_ll(params, x):
     mu, s, nu = params
@@ -1248,8 +1254,12 @@ def fit_general_t(x):
     
     def evaluate_u(quantile):
         return error_model.ppf(quantile)
+    
+    u = error_model.cdf(x)
+    
+    fitted = FittedModel(None, error_model, evaluate_u, u)
 
-    return m, s, nu, error_model, evaluate_u
+    return m, s, nu, fitted
 
 
 # Fit regression model with T errors
@@ -1284,15 +1294,6 @@ def fit_regression_t(x, y):
 
     return m, s, nu, *beta
 
-
-class FittedModel:
-    def __init__(self, beta, error_model, evaluate, errors, u):
-        self.beta = beta
-        self.error_model = error_model
-        self.evaluate = evaluate
-        self.errors = errors
-        self.u = u
-
 def fit_normal(x):
     # Mean and Std values
     m = np.mean(x)
@@ -1302,13 +1303,12 @@ def fit_normal(x):
     error_model = norm(loc=m, scale=s)
 
     # Calculate the errors and U
-    errors = x - m
     u = error_model.cdf(x)
 
     def evaluate_u(quantile):
         return error_model.ppf(quantile)
 
-    return FittedModel(None, error_model, evaluate_u, errors, u)
+    return FittedModel(None, error_model, evaluate_u, u)
 
 # value at risk from a provided error model, either a norm or t dist
 def VaR_error_model(error_model, alpha=0.05):

@@ -9,7 +9,7 @@ test_data = pd.read_csv("testfiles/data/test7_1.csv")
 testout_data = pd.read_csv("testfiles/data/testout8_4.csv")
 
 # ES from Normal Distribution
-mu, sigma, nu, error_model = fin.fit_general_t(test_data)
+mu, sigma, nu, fitted_model = fin.fit_general_t(test_data)
 
 print(testout_data)
 

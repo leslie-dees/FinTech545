@@ -8,6 +8,14 @@ test_returns = pd.read_csv("testfiles/data/test9_1_returns.csv")
 testout_data = pd.read_csv("testfiles/data/testout9_1.csv")
 
 print(test_portfolio)
-print(test_returns)
+#print(test_returns)
+
+prices = {
+    'A': 20,
+    'B': 30
+}
+
+models = {}
+
 
 print(testout_data)
