@@ -1245,8 +1245,11 @@ def fit_general_t(x):
     m, s, nu = result.x
 
     error_model = t(df=nu, loc=m, scale=s)
+    
+    def evaluate_u(quantile):
+        return error_model.ppf(quantile)
 
-    return m, s, nu, error_model
+    return m, s, nu, error_model, evaluate_u
 
 
 # Fit regression model with T errors
@@ -1277,6 +1280,7 @@ def fit_regression_t(x, y):
     result = minimize(_gtl, initial_params, method='Nelder-Mead')
 
     m, s, nu, *beta = result.x
+
 
     return m, s, nu, *beta
 
@@ -1325,3 +1329,20 @@ def ES_error_model(error_model, alpha=0.05):
     
     # Divide by alpha to get the expected shortfall
     return -es_value / alpha
+
+def VaR_simulation(a, alpha=0.05):
+    x = np.sort(a)
+    nup = int(np.ceil(len(a)*alpha))
+    ndn = int(np.floor(len(a)*alpha))
+    v = 0.5 * (x[nup] + x[ndn])
+    return -v
+
+def ES_simulation(a, alpha=0.05):
+    x = np.sort(a)
+    nup = int(np.ceil(len(a) * alpha))
+    ndn = int(np.floor(len(a) * alpha))
+    v = 0.5 * (x[nup] + x[ndn])
+
+    es = np.mean(x[x <= v])
+
+    return -es

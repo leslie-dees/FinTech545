@@ -3,21 +3,15 @@ import sys
 sys.path.append('C:/Users/lesli/Documents/Duke/Masters/FinTech545')
 import fin_package as fin
 import numpy as np
-from scipy.stats import t
+from scipy.stats import norm
 
 test_data = pd.read_csv("testfiles/data/test7_2.csv")
-testout_data = pd.read_csv("testfiles/data/testout8_2.csv")
-
-
-
-# VaR form Normal Distribution
+testout_data = pd.read_csv("testfiles/data/testout8_6.csv")
 
 mu, sigma, nu, error_model, eval = fin.fit_general_t(test_data)
-
-VaR_abs = fin.VaR_error_model(error_model)
-VaR_diff_mean = fin.VaR_error_model(t(df=nu, loc=0, scale=sigma))
+sim = eval(np.random.rand(100000))
 
 print(testout_data)
 
-print(VaR_abs)
-print(VaR_diff_mean)
+print(fin.ES_simulation(sim))
+print(fin.ES_simulation(sim - np.mean(sim)))

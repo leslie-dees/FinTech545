@@ -19,14 +19,10 @@ VaR Diff from Mean:     0.0874699240882966
 
 # VaR from Simulation -- compare to 8.2 values
 
-print(np.mean(test_data))
+mu, sigma, nu, error_model, eval = fin.fit_general_t(test_data)
+
+sim = eval(np.random.rand(100000))
 print(testout_data)
-# mu, sigma, nu = fin.fit_general_t(test_data)
 
-# VaR_abs = fin.calc_var_t_dist(mu, sigma, nu)
-# VaR_diff_mean = fin.calc_var_t_dist(0, sigma, nu)
-
-# print(testout_data)
-
-# print(VaR_abs)
-# print(VaR_diff_mean)
+print(fin.VaR_simulation(sim))
+print(fin.VaR_simulation(sim - np.mean(sim)))
