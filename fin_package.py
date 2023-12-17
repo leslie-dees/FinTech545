@@ -1346,3 +1346,51 @@ def ES_simulation(a, alpha=0.05):
     es = np.mean(x[x <= v])
 
     return -es
+
+# Simulation of PCA for usage in Gaussian copula
+def simulate_pca(a, nsim, pctExp=1, mean=None, seed=1234):
+    n = a.shape[0]
+
+    # If the mean is missing then set to 0, otherwise use the provided mean
+    _mean = np.zeros(n)
+    if mean is not None:
+        _mean = mean.copy()
+
+    # Eigenvalue decomposition
+    vals, vecs = eig(a)
+    sorted_indices = np.argsort(vals)[::-1]  # Get indices for sorting in descending order
+    vals = np.real(vals[sorted_indices])
+    vecs = np.real(vecs[:, sorted_indices])
+    
+    tv = np.sum(vals)
+
+    posv = np.where(vals >= 1e-8)[0]
+    if pctExp < 1:
+        nval = 0
+        pct = 0.0
+        # figure out how many factors we need for the requested percent explained
+        for i in range(len(posv)):
+            pct += vals[i] / tv
+            nval += 1
+            if pct >= pctExp:
+                break
+        if nval < len(posv):
+            posv = posv[:nval]
+    
+    vals = vals[posv]
+    vecs = vecs[:, posv]
+
+    # print(f"Simulating with {len(posv)} PC Factors: {np.sum(vals)/tv*100}% total variance explained")
+    B = vecs @ np.diag(np.sqrt(vals))
+
+    np.random.seed(seed)
+    m = len(vals)
+    r = np.random.randn(m, nsim)
+
+    out = (B @ r).T
+
+    # Loop over iterations and add the mean
+    for i in range(n):
+        out[:, i] += _mean[i]
+    
+    return out
