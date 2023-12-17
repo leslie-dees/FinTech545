@@ -194,7 +194,7 @@ initial_weights_es = np.ones(n) / n
 
 # Define the objective function for ES
 def objective_function_es(weights):
-    return SSE_CES(weights)
+    return SSE_CES(weights)*10000
 
 # Equality constraint: sum of weights = 1
 constraint_es = {'type': 'eq', 'fun': lambda weights: np.sum(weights) - 1}
