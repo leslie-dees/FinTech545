@@ -796,7 +796,7 @@ def calculate_prices(returns, initial_price, method="classical_brownian", print_
 
 
 def integral_bsm_with_coupons(call, underlying, strike, days, rf, ivol, tradingDayYear, couponRate, function_type = "Black Scholes", q=None):
-    
+    # Broken, do not use!!!
     if function_type == "Black Scholes":
         b = rf
     if function_type == "Merton":

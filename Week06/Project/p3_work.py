@@ -51,21 +51,21 @@ def calculate_portfolio_value(underlying_value, portfolio):
 
 underlying_values = np.arange(150.0, 190.0, 1.0)
 
-# plt.figure(figsize=(12, 8))
+plt.figure(figsize=(12, 8))
 
-# for portfolio_name in portfolios:
-#     portfolio_data = problem3[problem3['Portfolio'] == portfolio_name]
+for portfolio_name in portfolios:
+    portfolio_data = problem3[problem3['Portfolio'] == portfolio_name]
 
-#     portfolio_values = [calculate_portfolio_value(underlying_value, portfolio_data) for underlying_value in underlying_values]
+    portfolio_values = [calculate_portfolio_value(underlying_value, portfolio_data) for underlying_value in underlying_values]
     
-#     plt.plot(underlying_values, portfolio_values, label=portfolio_name, marker='o')
+    plt.plot(underlying_values, portfolio_values, label=portfolio_name, marker='o')
 
-# plt.xlabel('Underlying Value (AAPL)')
-# plt.ylabel('Portfolio Value')
-# plt.title('Portfolio Value vs. Underlying Value')
-# plt.grid(True)
-# plt.legend()  # Add legend to differentiate portfolios by color
-# plt.show()
+plt.xlabel('Underlying Value (AAPL)')
+plt.ylabel('Portfolio Value')
+plt.title('Portfolio Value vs. Underlying Value')
+plt.grid(True)
+plt.legend()  # Add legend to differentiate portfolios by color
+plt.show()
 
 
 daily_prices = pd.read_csv("Week06/Project/DailyPrices.csv")
