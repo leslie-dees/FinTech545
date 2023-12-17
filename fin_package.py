@@ -716,6 +716,7 @@ def calculate_portfolio_var(portfolio, price_df, returns_df, lambd, alpha = 0.05
     return total_VaR
 
 def return_calculate(prices_df, method="DISCRETE", date_column="Date"):
+    # Calcualte returns given a prices dataframe
     vars = prices_df.columns
     n_vars = len(vars)
     vars = [var for var in vars if var != date_column]
@@ -1331,6 +1332,7 @@ def ES_error_model(error_model, alpha=0.05):
     return -es_value / alpha
 
 def VaR_simulation(a, alpha=0.05):
+    #value at risk from simulation
     x = np.sort(a)
     nup = int(np.ceil(len(a)*alpha))
     ndn = int(np.floor(len(a)*alpha))
@@ -1338,6 +1340,7 @@ def VaR_simulation(a, alpha=0.05):
     return -v
 
 def ES_simulation(a, alpha=0.05):
+    #expected shortfall from simulation
     x = np.sort(a)
     nup = int(np.ceil(len(a) * alpha))
     ndn = int(np.floor(len(a) * alpha))
