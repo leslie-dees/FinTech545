@@ -75,6 +75,12 @@
 "options_price"
 # # Option price error:
 "option_price_error"
+"""
+Long means to buy
+Short means to sell
+Call means option to buy
+Put means option to sell
+"""
 
 # Implied volatility:
 "calculate_implied_volatility"
